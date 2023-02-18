@@ -229,6 +229,10 @@ def main():
     print('Mean bAcc:')
     print(np.mean(test_accs[-20:]))
 
+    print('Best bAA:')
+    print(np.max(test_accs))
+    print(f'Best @{np.argmax(test_accs)} epoch')
+
     print('Name of saved folder:')
     print(args.out)
 
