@@ -45,14 +45,14 @@ class TransformTwice:
         return out1, out2, out3
 
 def get_cifar10(root, l_samples, u_samples, transform_train=transform_train, transform_strong=transform_strong,
-                transform_val=transform_val, download=False, seed=0, return_strong_labeled_set=False):
+                transform_val=transform_val, download=True, seed=0, return_strong_labeled_set=False):
     base_dataset = torchvision.datasets.CIFAR10(root, train=True, download=download)
     train_labeled_idxs, train_unlabeled_idxs = train_split(base_dataset.targets, l_samples, u_samples, 10, seed)
 
     train_labeled_dataset = CIFAR10_labeled(root, train_labeled_idxs, train=True, transform=transform_train)
     train_unlabeled_dataset = CIFAR10_unlabeled(root, train_unlabeled_idxs, train=True,
                                                 transform=TransformTwice(transform_train, transform_strong))
-    test_dataset = CIFAR10_labeled(root, train=False, transform=transform_val, download=False)
+    test_dataset = CIFAR10_labeled(root, train=False, transform=transform_val, download=True)
 
     print (f"#Labeled: {len(train_labeled_idxs)} #Unlabeled: {len(train_unlabeled_idxs)}")
     if return_strong_labeled_set:
@@ -80,7 +80,7 @@ class CIFAR10_labeled(torchvision.datasets.CIFAR10):
 
     def __init__(self, root, indexs=None, train=True,
                  transform=None, target_transform=None,
-                 download=False):
+                 download=True):
         super(CIFAR10_labeled, self).__init__(root, train=train,
                  transform=transform, target_transform=target_transform,
                  download=download)
@@ -112,7 +112,7 @@ class CIFAR10_unlabeled(CIFAR10_labeled):
 
     def __init__(self, root, indexs, train=True,
                  transform=None, target_transform=None,
-                 download=False):
+                 download=True):
         super(CIFAR10_unlabeled, self).__init__(root, indexs, train=train,
                  transform=transform, target_transform=target_transform,
                  download=download)
