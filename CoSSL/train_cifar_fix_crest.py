@@ -301,13 +301,13 @@ def main():
         current_dalign_t = (1.0 - cur) * 1.0 + cur * args.dalign_t
 
         if args.dataset == 'cifar10':
-            base_dataset = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=True, download=False)
+            base_dataset = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=True, download=True)
             test_set = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar10)
             weakDA = tfms_w_cifar10
             strongDA = tfms_s_cifar10
             valDA = tfms_test_cifar10
         elif args.dataset == 'cifar100':
-            base_dataset = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=True, download=False)
+            base_dataset = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=True, download=True)
             test_set = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar100)
             weakDA = tfms_w_cifar100
             strongDA = tfms_s_cifar100
