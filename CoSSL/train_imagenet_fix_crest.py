@@ -24,8 +24,8 @@ from __future__ import print_function
 import argparse
 import os
 import json
-# from sklearn.metrics import precision_score
-# from sklearn.metrics import recall_score
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
 import time
 import random
 import math
@@ -93,7 +93,7 @@ parser.add_argument('--val-iteration', type=int, default=1024,
                         help='Frequency for the evaluation')
 
 # Hyperparameters for FixMatch
-parser.add_argument('--tau', default=0.95, type=float, help='hyper-parameter for pseudo-label of FixMatch')
+parser.add_argument('--tau', default=0.7, type=float, help='hyper-parameter for pseudo-label of FixMatch')
 parser.add_argument('--ema-decay', default=0.999, type=float)
 
 # Hyperparameters for CReST
@@ -301,14 +301,14 @@ def main():
         current_dalign_t = (1.0 - cur) * 1.0 + cur * args.dalign_t
 
         if args.dataset == 'cifar10':
-            base_dataset = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=True, download=False)
-            test_set = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar10)
+            base_dataset = torchvision.datasets.CIFAR10('/BS/databases00/cifar-10', train=True, download=False)
+            test_set = torchvision.datasets.CIFAR10('/BS/databases00/cifar-10', train=False, download=False, transform=tfms_test_cifar10)
             weakDA = tfms_w_cifar10
             strongDA = tfms_s_cifar10
             valDA = tfms_test_cifar10
         elif args.dataset == 'cifar100':
-            base_dataset = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=True, download=False)
-            test_set = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar100)
+            base_dataset = torchvision.datasets.CIFAR100('/BS/databases00/cifar-100', train=True, download=False)
+            test_set = torchvision.datasets.CIFAR100('/BS/databases00/cifar-100', train=False, download=False, transform=tfms_test_cifar100)
             weakDA = tfms_w_cifar100
             strongDA = tfms_s_cifar100
             valDA = tfms_test_cifar100
@@ -422,8 +422,8 @@ def main():
         print('Mean bAcc:')
         print(np.mean(test_accs[-20:]))
 
-        # print('Mean GM:')
-        # print(np.mean(test_gms[-20:]))
+        print('Mean GM:')
+        print(np.mean(test_gms[-20:]))
 
         print('Name of saved folder:')
         print(args.out)
@@ -581,9 +581,9 @@ def validate(valloader, model, criterion, use_cuda, mode):
     end = time.time()
     bar = Bar(f'{mode}', max=len(valloader))
 
-    classwise_correct = torch.zeros(num_class).cuda()
-    classwise_num = torch.zeros(num_class).cuda()
-    section_acc = torch.zeros(3).cuda()
+    classwise_correct = torch.zeros(num_class)
+    classwise_num = torch.zeros(num_class)
+    section_acc = torch.zeros(3)
 
     y_true = []
     y_pred = []
@@ -611,6 +611,7 @@ def validate(valloader, model, criterion, use_cuda, mode):
             pred_mask = (targets == pred_label).float()
             for i in range(num_class):
                 class_mask = (targets == i).float()
+
                 classwise_correct[i] += (class_mask * pred_mask).sum()
                 classwise_num[i] += class_mask.sum()
 
@@ -648,7 +649,7 @@ def validate(valloader, model, criterion, use_cuda, mode):
         else:
             GM *= (classwise_acc[i]) ** (1/num_class)
 
-    return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM)
+    return (losses.avg, top1.avg, section_acc.numpy(), GM)
 
 
 def make_imb_data(max_num, class_num, gamma):
@@ -707,16 +708,8 @@ class WeightEMA(object):
             ema_param.data.copy_(param.data)
 
     def step(self):
-        # one_minus_alpha = 1.0 - self.alpha
-        # for param, ema_param in zip(self.params, self.ema_params):
-        #     ema_param.mul_(self.alpha)
-        #     ema_param.add_(param * one_minus_alpha)
-        #     # customized weight decay
-        #     param.mul_(1 - self.wd)
         one_minus_alpha = 1.0 - self.alpha
         for param, ema_param in zip(self.params, self.ema_params):
-            ema_param = ema_param.float()
-            param = param.float()
             ema_param.mul_(self.alpha)
             ema_param.add_(param * one_minus_alpha)
             # customized weight decay

@@ -44,17 +44,17 @@ parser.add_argument('--out', default='result',
 
 # Method options
 parser.add_argument('--dataset', type=str, default='cifar10',
-                        help='cifar10 or cifar100')
+                    help='cifar10 or cifar100')
 parser.add_argument('--num_max', type=int, default=1500,
-                        help='Number of samples in the maximal class')
+                    help='Number of samples in the maximal class')
 parser.add_argument('--ratio', type=float, default=2.0,
-                        help='Relative size between labeled and unlabeled data')
+                    help='Relative size between labeled and unlabeled data')
 parser.add_argument('--imb_ratio_l', type=int, default=100,
-                        help='Imbalance ratio for labeled data')
+                    help='Imbalance ratio for labeled data')
 parser.add_argument('--imb_ratio_u', type=int, default=100,
-                        help='Imbalance ratio for unlabeled data')
+                    help='Imbalance ratio for unlabeled data')
 parser.add_argument('--val-iteration', type=int, default=500,
-                        help='Frequency for the evaluation')
+                    help='Frequency for the evaluation')
 # Hyperparameters for FixMatch
 parser.add_argument('--tau', default=0.95, type=float,
                     help='hyper-parameter for pseudo-label of FixMatch')
@@ -65,7 +65,6 @@ parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
 # Device options
 parser.add_argument('--gpu', default='0', type=str,
                     help='id(s) for CUDA_VISIBLE_DEVICES')
-
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -107,15 +106,17 @@ def main():
     U_SAMPLES_PER_CLASS = make_imb_data(args.ratio * args.num_max, num_class, args.imb_ratio_u)
 
     if args.dataset == 'cifar10':
-        train_labeled_set, train_unlabeled_set, test_set, train_strong = dataset_cifar10.get_cifar10('/BS/databases00/cifar-10',
-                                                                                       N_SAMPLES_PER_CLASS,
-                                                                                       U_SAMPLES_PER_CLASS,
-                                                                                       return_strong_labeled_set=True, seed=args.manualSeed)
+        train_labeled_set, train_unlabeled_set, test_set, train_strong = dataset_cifar10.get_cifar10(
+            '/share/home/wjpeng/dataset',
+            N_SAMPLES_PER_CLASS,
+            U_SAMPLES_PER_CLASS,
+            return_strong_labeled_set=True, seed=args.manualSeed)
     elif args.dataset == 'cifar100':
-        train_labeled_set, train_unlabeled_set, test_set, train_strong = dataset_cifar100.get_cifar100('/BS/databases00/cifar-100',
-                                                                                         N_SAMPLES_PER_CLASS,
-                                                                                         U_SAMPLES_PER_CLASS,
-                                                                                         return_strong_labeled_set=True, seed=args.manualSeed)
+        train_labeled_set, train_unlabeled_set, test_set, train_strong = dataset_cifar100.get_cifar100(
+            '/share/home/wjpeng/dataset',
+            N_SAMPLES_PER_CLASS,
+            U_SAMPLES_PER_CLASS,
+            return_strong_labeled_set=True, seed=args.manualSeed)
     else:
         raise NotImplementedError
 
@@ -162,8 +163,10 @@ def main():
         group['weight_decay'] = 0.02 * args.lr
 
     logger = Logger(os.path.join(args.out, 'log.txt'), title='fix-cifar')
-    logger.set_names(['Train Loss', 'Train Loss X', 'Train Loss U', 'Train Loss Teacher', 'Mask', 'Total Acc.', 'Used Acc.', 'Teacher Acc.',
-                      'Test Loss', 'Test Acc.'])
+    logger.set_names(
+        ['Train Loss', 'Train Loss X', 'Train Loss U', 'Train Loss Teacher', 'Mask', 'Total Acc.', 'Used Acc.',
+         'Teacher Acc.',
+         'Test Loss', 'Test Acc.'])
 
     # Define a new classifier for TFE branch
     teacher_head = nn.Linear(model.output.in_features, num_class, bias=True).cuda()
@@ -197,7 +200,8 @@ def main():
         # Construct balanced dataset
         class_balanced_disb = torch.Tensor(make_imb_data(30000, num_class, 1))
         class_balanced_disb = class_balanced_disb / class_balanced_disb.sum()
-        sampler_x = get_weighted_sampler(class_balanced_disb, torch.Tensor(N_SAMPLES_PER_CLASS), crt_labeled_set.targets)
+        sampler_x = get_weighted_sampler(class_balanced_disb, torch.Tensor(N_SAMPLES_PER_CLASS),
+                                         crt_labeled_set.targets)
         batch_sampler_x = BatchSampler(sampler_x, batch_size=args.batch_size, drop_last=True)
         crt_labeled_loader = data.DataLoader(crt_labeled_set, batch_sampler=batch_sampler_x, num_workers=0)
 
@@ -262,7 +266,8 @@ def train(labeled_trainloader, unlabeled_trainloader, model, ema_model, optimize
     ema_model.eval()
 
     # Different classes have different TFE probability
-    tfe_prob = [(max(num_labeled_data_per_class) - i) / max(num_labeled_data_per_class) for i in num_labeled_data_per_class]
+    tfe_prob = [(max(num_labeled_data_per_class) - i) / max(num_labeled_data_per_class) for i in
+                num_labeled_data_per_class]
 
     for batch_idx in range(args.val_iteration):
         # Data loading
@@ -389,28 +394,28 @@ def train(labeled_trainloader, unlabeled_trainloader, model, ema_model, optimize
         bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
                      'Loss: {loss:.4f} | Loss_x: {loss_x:.4f} | Loss_u: {loss_u:.4f} | Loss_t: {loss_t:.4f} |' \
                      'Mask: {mask:.4f}| Use_acc: {used_acc:.4f} | teacher_acc: {teacher_acc:.4f}'.format(
-                    batch=batch_idx + 1,
-                    size=args.val_iteration,
-                    data=data_time.avg,
-                    bt=batch_time.avg,
-                    total=bar.elapsed_td,
-                    eta=bar.eta_td,
-                    loss=losses.avg,
-                    loss_x=losses_x.avg,
-                    loss_u=losses_u.avg,
-                    loss_t=losses_teacher.avg,
-                    mask=mask_prob.avg,
-                    used_acc=used_c.avg,
-                    teacher_acc=teacher_acc.avg,
-                    )
+            batch=batch_idx + 1,
+            size=args.val_iteration,
+            data=data_time.avg,
+            bt=batch_time.avg,
+            total=bar.elapsed_td,
+            eta=bar.eta_td,
+            loss=losses.avg,
+            loss_x=losses_x.avg,
+            loss_u=losses_u.avg,
+            loss_t=losses_teacher.avg,
+            mask=mask_prob.avg,
+            used_acc=used_c.avg,
+            teacher_acc=teacher_acc.avg,
+        )
         bar.next()
     bar.finish()
 
-    return (losses.avg, losses_x.avg, losses_u.avg, losses_teacher.avg, mask_prob.avg, total_c.avg, used_c.avg, teacher_acc.avg)
+    return (
+    losses.avg, losses_x.avg, losses_u.avg, losses_teacher.avg, mask_prob.avg, total_c.avg, used_c.avg, teacher_acc.avg)
 
 
 def validate_teacher(valloader, model, head, criterion, use_cuda, mode):
-
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -454,23 +459,23 @@ def validate_teacher(valloader, model, head, criterion, use_cuda, mode):
                 classwise_correct[i] += (class_mask * pred_mask).sum()
                 classwise_num[i] += class_mask.sum()
 
-             # measure elapsed time
+            # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
 
             # plot progress
             bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
                          'Loss: {loss:.4f} | top1: {top1: .4f} | top5: {top5: .4f}'.format(
-                         batch=batch_idx + 1,
-                         size=len(valloader),
-                         data=data_time.avg,
-                         bt=batch_time.avg,
-                         total=bar.elapsed_td,
-                         eta=bar.eta_td,
-                         loss=losses.avg,
-                         top1=top1.avg,
-                         top5=top5.avg,
-                         )
+                batch=batch_idx + 1,
+                size=len(valloader),
+                data=data_time.avg,
+                bt=batch_time.avg,
+                total=bar.elapsed_td,
+                eta=bar.eta_td,
+                loss=losses.avg,
+                top1=top1.avg,
+                top5=top5.avg,
+            )
             bar.next()
         bar.finish()
 
@@ -484,9 +489,9 @@ def validate_teacher(valloader, model, head, criterion, use_cuda, mode):
     for i in range(num_class):
         if classwise_acc[i] == 0:
             # To prevent the N/A values, we set the minimum value as 0.001
-            GM *= (1/(100 * num_class)) ** (1/num_class)
+            GM *= (1 / (100 * num_class)) ** (1 / num_class)
         else:
-            GM *= (classwise_acc[i]) ** (1/num_class)
+            GM *= (classwise_acc[i]) ** (1 / num_class)
 
     return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM)
 
