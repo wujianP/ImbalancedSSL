@@ -32,35 +32,33 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data as data
 
-import models.resnet as models
-from dataset.fix_small_imagenet127 import get_small_imagenet
+# import models.resnet as models
+from dataset.fix_imagenet import get_imagenet
 from utils import save_checkpoint, FixMatch_Loss, WeightEMA
 from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p
 
 parser = argparse.ArgumentParser(description='PyTorch ReMixMatch Training')
 # Optimization options
-parser.add_argument('--epochs', default=162, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                    help='manual epoch number (useful on restarts)')
-parser.add_argument('--batch-size', default=64, type=int, metavar='N',
-                    help='train batchsize')
-parser.add_argument('--mu', default=1, type=int, metavar='N',
-                    help='unlabeled bs = bs * mu')
-parser.add_argument('--lr', '--learning-rate', default=0.2, type=float,
-                    metavar='LR', help='initial learning rate')
+parser.add_argument('--epochs', default=161, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
+parser.add_argument('--batch-size', default=64, type=int, metavar='N', help='train batchsize')
+parser.add_argument('--mu', default=1, type=int, metavar='N', help='unlabeled bs = bs * mu')
+parser.add_argument('--lr', '--learning-rate', default=0.2, type=float, metavar='LR', help='initial learning rate')
 # Checkpoints
 parser.add_argument('--out', default='result', help='Directory to output the result')
 # Method options
-parser.add_argument('--labeled_ratio', type=float, default=0.1, help='by default we take 10% labeled data')
-# parser.add_argument('--img_size', type=int, default=224)
-parser.add_argument('--val-iteration', type=int, default=500, help='Frequency for the evaluation')
+parser.add_argument('--labeled_ratio', type=float, default=20, help='by default we take 20% labeled data')
+parser.add_argument('--val-iteration', type=int, default=46, help='Frequency for the evaluation')
 # Hyperparameters for FixMatch
 parser.add_argument('--tau', default=0.7, type=float, help='hyper-parameter for pseudo-label of FixMatch')
-# parser.add_argument('--ema-decay', default=0.999, type=float)
+parser.add_argument('--ema-decay', default=0.999, type=float)
 # Miscs
 parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
 parser.add_argument('--gpu', default='0', type=str, help='id(s) for CUDA_VISIBLE_DEVICES')
+
+# added by wj
+parser.add_argument('--data_path', required=True, type=str)
+parser.add_argument('--annotation_file_path`', required=True, type=str)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -81,7 +79,7 @@ if use_cuda:
     torch.backends.cudnn.deterministic = True
 
 best_acc = 0  # best test accuracy
-num_class = 127
+num_class = 1000
 
 
 def main():
@@ -91,24 +89,30 @@ def main():
         mkdir_p(args.out)
 
     # Data
-    print(f'==> Preparing imbalanced ImageNet127-{args.img_size}')
+    print(f'==> Preparing imbalanced ImageNetLT-{args.labeled_ratio}')
 
-    img_size2path = {32: '/BS/yfan/nobackup/ImageNet127_32', 64: '/BS/yfan/nobackup/ImageNet127_64'}
-    tmp = get_small_imagenet(img_size2path[args.img_size], args.img_size, labeled_percent=args.labeled_percent,
-                             seed=args.manualSeed, return_strong_labeled_set=False)
-    N_SAMPLES_PER_CLASS, train_labeled_set, train_unlabeled_set, test_set = tmp
+    # img_size2path = {32: '/BS/yfan/nobackup/ImageNet127_32', 64: '/BS/yfan/nobackup/ImageNet127_64'}
+    # tmp = get_small_imagenet(img_size2path[args.img_size], args.img_size, labeled_percent=args.labeled_percent,
+    #                          seed=args.manualSeed, return_strong_labeled_set=False)
+    tmp = get_imagenet(
+            root=args.data_path,
+            annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
+            annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
+            annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
+            num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
+    _, train_labeled_set, train_unlabeled_set, test_set = tmp
 
-    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=0,
-                                          drop_last=True)
-    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.mu * args.batch_size, shuffle=True, num_workers=0,
-                                            drop_last=True)
-    test_loader = data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=6, drop_last=True)
+    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.mu * args.batch_size, shuffle=True, num_workers=6, drop_last=True)
+    test_loader = data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=6)
 
     # Model
-    print("==> creating WRN-28-2")
+    print("==> creating ResNet50")
 
     def create_model(ema=False):
-        model = models.ResNet50(num_classes=num_class, rotation=True, classifier_bias=True)
+        # model = models.ResNet50(num_classes=num_class, rotation=True, classifier_bias=True)
+        from models.resnetwithABC import ResNet
+        model = ResNet(num_classes=num_class, encoder_name='resnet', pretrained=False)
         model = model.cuda()
 
         if ema:
@@ -124,12 +128,14 @@ def main():
 
     train_criterion = FixMatch_Loss()
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    # optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
     ema_optimizer = WeightEMA(model, ema_model, args.lr, alpha=args.ema_decay)
     start_epoch = 0
 
     # Resume
-    title = 'fix-cifar-10'
+    title = f'Fix-ImagenetLT-{args.labeled_ratio}'
     if os.path.isfile(os.path.join(args.out, 'checkpoint.pth.tar')):
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
@@ -138,6 +144,7 @@ def main():
         model.load_state_dict(checkpoint['state_dict'])
         ema_model.load_state_dict(checkpoint['ema_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
+        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         logger = Logger(os.path.join(args.out, 'log.txt'), title=title, resume=True)
     else:
         logger = Logger(os.path.join(args.out, 'log.txt'), title=title)
@@ -172,9 +179,11 @@ def main():
             'state_dict': model.state_dict(),
             'ema_state_dict': ema_model.state_dict(),
             'optimizer': optimizer.state_dict(),
+            'lr_scheduler': lr_scheduler.state_dict(),
         }, epoch, args.out)
         test_accs.append(test_acc)
         test_gms.append(test_gm)
+        lr_scheduler.step()
 
     logger.close()
 
