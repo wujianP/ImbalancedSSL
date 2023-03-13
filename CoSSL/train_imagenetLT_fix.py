@@ -27,7 +27,6 @@ import numpy as np
 
 import torch
 import torch.nn as nn
-import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data as data
@@ -41,7 +40,7 @@ parser = argparse.ArgumentParser(description='PyTorch ReMixMatch Training')
 # Optimization options
 parser.add_argument('--epochs', default=161, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
-parser.add_argument('--batch-size', default=64, type=int, metavar='N', help='train batchsize')
+parser.add_argument('--batch_size', default=64, type=int, metavar='N', help='train batchsize')
 parser.add_argument('--mu', default=1, type=int, metavar='N', help='unlabeled bs = bs * mu')
 parser.add_argument('--lr', '--learning-rate', default=0.2, type=float, metavar='LR', help='initial learning rate')
 # Checkpoints
@@ -58,7 +57,7 @@ parser.add_argument('--gpu', default='0', type=str, help='id(s) for CUDA_VISIBLE
 
 # added by wj
 parser.add_argument('--data_path', required=True, type=str)
-parser.add_argument('--annotation_file_path`', required=True, type=str)
+parser.add_argument('--annotation_file_path', required=True, type=str)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -240,7 +239,8 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
         # Generate the pseudo labels
         with torch.no_grad():
             # Generate the pseudo labels by aggregation and sharpening
-            outputs_u, _ = model(inputs_u)
+            # outputs_u, _ = model(inputs_u)
+            outputs_u = model(inputs_u)
             targets_u = torch.softmax(outputs_u, dim=1)
 
             max_p, p_hat = torch.max(targets_u, dim=1)
@@ -258,7 +258,8 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
         all_inputs = torch.cat([inputs_x, inputs_u2, inputs_u3], dim=0)
         all_targets = torch.cat([targets_x, p_hat, p_hat], dim=0)
 
-        all_outputs, _ = model(all_inputs)
+        # all_outputs, _ = model(all_inputs)
+        all_outputs = model(all_inputs)
         logits_x = all_outputs[:batch_size]
         logits_u = all_outputs[batch_size:]
 
@@ -316,9 +317,9 @@ def validate(valloader, model, criterion, use_cuda, mode):
     end = time.time()
     bar = Bar(f'{mode}', max=len(valloader))
 
-    classwise_correct = torch.zeros(num_class)
-    classwise_num = torch.zeros(num_class)
-    section_acc = torch.zeros(3)
+    classwise_correct = torch.zeros(num_class).cuda()
+    classwise_num = torch.zeros(num_class).cuda()
+    section_acc = torch.zeros(3).cuda()
 
     y_true = []
     y_pred = []
@@ -331,7 +332,8 @@ def validate(valloader, model, criterion, use_cuda, mode):
             if use_cuda:
                 inputs, targets = inputs.cuda(), targets.cuda(non_blocking=True)
             # compute output
-            outputs, _ = model(inputs)
+            # outputs, _ = model(inputs)
+            outputs = model(inputs)
             loss = criterion(outputs, targets)
 
             # measure accuracy and record loss
@@ -384,7 +386,7 @@ def validate(valloader, model, criterion, use_cuda, mode):
         else:
             GM *= (classwise_acc[i]) ** (1/num_class)
 
-    return (losses.avg, top1.avg, section_acc.numpy(), GM, classwise_acc)
+    return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM, classwise_acc)
 
 
 if __name__ == '__main__':

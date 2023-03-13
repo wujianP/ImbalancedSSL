@@ -3,11 +3,11 @@ cd /share/home/wjpeng/projects/ImbalancedSSL/CoSSL
 DATA='/share/common/ImageDatasets/imagenet_2012'
 ANN='/share/home/wjpeng/projects/improvedABC/dataset/ImageNet_LT'
 OUT='/share_io03_ssd/ckpt2/wjpeng/experiments/debug'
-python train_imagenet-LT_fix.py \
+python train_imagenetLT_fix.py \
 --labeled_ratio 20 \
 --epoch 200 \
---batch_size 2 \
---val-iteration 200 \
+--batch_size 64 \
+--val-iteration 10 \
 --out ${OUT} \
 --data_path ${DATA} \
 --annotation_file_path ${ANN} \
