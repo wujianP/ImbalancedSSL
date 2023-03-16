@@ -273,9 +273,12 @@ class ResNet(nn.Module):
             print('==> Pretrained model loaded')
             self.encoder.load_state_dict(part_state_dict)
 
-    def forward(self, x):
+    def forward(self, x, return_feature=False):
 
         feats = self.encoder(x)
         logits = self.fc(feats)
 
-        return logits
+        if return_feature:
+            return logits, feats
+        else:
+            return logits

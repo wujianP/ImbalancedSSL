@@ -58,6 +58,7 @@ parser.add_argument('--gpu', default='0', type=str, help='id(s) for CUDA_VISIBLE
 # added by wj
 parser.add_argument('--data_path', required=True, type=str)
 parser.add_argument('--annotation_file_path', required=True, type=str)
+parser.add_argument('--save_freq', type=int, default=80)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -130,7 +131,7 @@ def main():
     # optimizer = optim.Adam(model.parameters(), lr=args.lr)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
     lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
-    ema_optimizer = WeightEMA(model, ema_model, args.lr, alpha=args.ema_decay)
+    ema_optimizer = WeightEMA(model, ema_model, args.lr, alpha=args.ema_decay, wd=False)
     start_epoch = 0
 
     # Resume
@@ -179,7 +180,7 @@ def main():
             'ema_state_dict': ema_model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'lr_scheduler': lr_scheduler.state_dict(),
-        }, epoch, args.out)
+        }, epoch, args.out, save_freq=args.save_freq)
         test_accs.append(test_acc)
         test_gms.append(test_gm)
         lr_scheduler.step()

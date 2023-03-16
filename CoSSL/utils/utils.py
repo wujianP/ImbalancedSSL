@@ -92,7 +92,8 @@ class WeightEMA(object):
             ema_param.mul_(self.alpha)
             ema_param.add_(param * one_minus_alpha)
             # customized weight decay
-            param.mul_(1 - self.wd)
+            if self.wd:
+                param.mul_(1 - self.wd)
 
 
 def interleave_offsets(batch, nu):
@@ -115,11 +116,11 @@ def interleave(xy, batch):
     return [torch.cat(v, dim=0) for v in xy]
 
 
-def save_checkpoint(state, epoch, checkpoint, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, epoch, checkpoint, save_freq, filename='checkpoint.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
 
-    if epoch % 100 == 0:
+    if epoch % save_freq == 0:
         shutil.copyfile(filepath, os.path.join(checkpoint, f'checkpoint_{epoch + 1}.pth.tar'))
 
 
