@@ -116,12 +116,14 @@ def interleave(xy, batch):
     return [torch.cat(v, dim=0) for v in xy]
 
 
-def save_checkpoint(state, epoch, checkpoint, save_freq, filename='checkpoint.pth.tar'):
-    filepath = os.path.join(checkpoint, filename)
-    torch.save(state, filepath)
-
+def save_checkpoint(state, epoch, save_path, save_freq, is_best):
     if epoch % save_freq == 0:
-        shutil.copyfile(filepath, os.path.join(checkpoint, f'checkpoint_{epoch + 1}.pth.tar'))
+        torch.save(state, os.path.join(save_path, f'checkpoint_{epoch + 1}.pth'))
+    # save the best checkpoint
+    if is_best:
+        if os.path.isfile(os.path.join(save_path, 'best.pth')):
+            os.remove(os.path.join(save_path, 'best.pth'))
+        torch.save(state, os.path.join(save_path, 'best.pth'))
 
 
 def get_weighted_sampler(target_sample_rate, num_sample_per_class, target):

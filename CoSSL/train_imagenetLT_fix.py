@@ -36,7 +36,7 @@ from dataset.fix_imagenet import get_imagenet
 from utils import save_checkpoint, FixMatch_Loss, WeightEMA
 from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p
 
-parser = argparse.ArgumentParser(description='PyTorch ReMixMatch Training')
+parser = argparse.ArgumentParser(description='PyTorch FixMatch Training')
 # Optimization options
 parser.add_argument('--epochs', default=161, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
@@ -58,7 +58,7 @@ parser.add_argument('--gpu', default='0', type=str, help='id(s) for CUDA_VISIBLE
 # added by wj
 parser.add_argument('--data_path', required=True, type=str)
 parser.add_argument('--annotation_file_path', required=True, type=str)
-parser.add_argument('--save_freq', type=int, default=80)
+parser.add_argument('--save_freq', type=int, default=40)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -78,7 +78,7 @@ if use_cuda:
     torch.cuda.manual_seed_all(args.manualSeed)
     torch.backends.cudnn.deterministic = True
 
-best_acc = 0  # best test accuracy
+best_acc = 0 # best test accuracy
 num_class = 1000
 
 
@@ -95,15 +95,17 @@ def main():
     # tmp = get_small_imagenet(img_size2path[args.img_size], args.img_size, labeled_percent=args.labeled_percent,
     #                          seed=args.manualSeed, return_strong_labeled_set=False)
     tmp = get_imagenet(
-            root=args.data_path,
-            annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
-            annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
-            annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
-            num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
+        root=args.data_path,
+        annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
+        annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
+        annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
+        num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
     _, train_labeled_set, train_unlabeled_set, test_set = tmp
 
-    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=6, drop_last=True)
-    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.mu * args.batch_size, shuffle=True, num_workers=6, drop_last=True)
+    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=6,
+                                          drop_last=True)
+    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.mu * args.batch_size, shuffle=True,
+                                            num_workers=6, drop_last=True)
     test_loader = data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=6)
 
     # Model
@@ -124,7 +126,7 @@ def main():
     model = create_model()
     ema_model = create_model(ema=True)
 
-    print('Total params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
+    print('Total params: %.2fM' % (sum(p.numel() for p in model.parameters()) / 1000000.0))
 
     train_criterion = FixMatch_Loss()
     criterion = nn.CrossEntropyLoss()
@@ -168,7 +170,13 @@ def main():
                              )
 
         # Evaluation part
-        test_loss, test_acc, test_cls, test_gm, per_cls_acc = validate(test_loader, ema_model, criterion, use_cuda, mode='Test Stats ')
+        test_loss, test_acc, test_cls, test_gm, per_cls_acc = validate(test_loader, ema_model, criterion, use_cuda,
+                                                                       mode='Test Stats ')
+
+        is_best = False
+        if test_acc > best_acc:
+            best_acc = test_acc
+            is_best = True
 
         # Append logger file
         logger.append([*train_info, test_loss, per_cls_acc.mean().tolist(), test_acc])
@@ -180,7 +188,7 @@ def main():
             'ema_state_dict': ema_model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'lr_scheduler': lr_scheduler.state_dict(),
-        }, epoch, args.out, save_freq=args.save_freq)
+        }, epoch, args.out, save_freq=args.save_freq, is_best=is_best)
         test_accs.append(test_acc)
         test_gms.append(test_gm)
         lr_scheduler.step()
@@ -191,8 +199,8 @@ def main():
     print('Mean bAcc:')
     print(np.mean(test_accs[-20:]))
 
-    print('Mean GM:')
-    print(np.mean(test_gms[-20:]))
+    # print('Mean GM:')
+    # print(np.mean(test_gms[-20:]))
 
     print('Name of saved folder:')
     print(args.out)
@@ -284,28 +292,27 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
 
         # plot progress
         bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
-                      'Loss: {loss:.4f} | Loss_x: {loss_x:.4f} | Loss_u: {loss_u:.4f} | Mask: {mask:.4f}| ' \
-                      'Use_acc: {used_acc:.4f}'.format(
-                    batch=batch_idx + 1,
-                    size=args.val_iteration,
-                    data=data_time.avg,
-                    bt=batch_time.avg,
-                    total=bar.elapsed_td,
-                    eta=bar.eta_td,
-                    loss=losses.avg,
-                    loss_x=losses_x.avg,
-                    loss_u=losses_u.avg,
-                    mask=mask_prob.avg,
-                    used_acc=used_c.avg,
-                    )
+                     'Loss: {loss:.4f} | Loss_x: {loss_x:.4f} | Loss_u: {loss_u:.4f} | Mask: {mask:.4f}| ' \
+                     'Use_acc: {used_acc:.4f}'.format(
+            batch=batch_idx + 1,
+            size=args.val_iteration,
+            data=data_time.avg,
+            bt=batch_time.avg,
+            total=bar.elapsed_td,
+            eta=bar.eta_td,
+            loss=losses.avg,
+            loss_x=losses_x.avg,
+            loss_u=losses_u.avg,
+            mask=mask_prob.avg,
+            used_acc=used_c.avg,
+        )
         bar.next()
     bar.finish()
 
-    return (losses.avg, losses_x.avg, losses_u.avg, mask_prob.avg, total_c.avg, used_c.avg)
+    return losses.avg, losses_x.avg, losses_u.avg, mask_prob.avg, total_c.avg, used_c.avg
 
 
 def validate(valloader, model, criterion, use_cuda, mode):
-
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -353,23 +360,23 @@ def validate(valloader, model, criterion, use_cuda, mode):
                 classwise_correct[i] += (class_mask * pred_mask).sum()
                 classwise_num[i] += class_mask.sum()
 
-             # measure elapsed time
+            # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
 
             # plot progress
-            bar.suffix  = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
-                          'Loss: {loss:.4f} | top1: {top1: .4f} | top5: {top5: .4f}'.format(
-                        batch=batch_idx + 1,
-                        size=len(valloader),
-                        data=data_time.avg,
-                        bt=batch_time.avg,
-                        total=bar.elapsed_td,
-                        eta=bar.eta_td,
-                        loss=losses.avg,
-                        top1=top1.avg,
-                        top5=top5.avg,
-                        )
+            bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
+                         'Loss: {loss:.4f} | top1: {top1: .4f} | top5: {top5: .4f}'.format(
+                batch=batch_idx + 1,
+                size=len(valloader),
+                data=data_time.avg,
+                bt=batch_time.avg,
+                total=bar.elapsed_td,
+                eta=bar.eta_td,
+                loss=losses.avg,
+                top1=top1.avg,
+                top5=top5.avg,
+            )
             bar.next()
         bar.finish()
 
@@ -383,11 +390,11 @@ def validate(valloader, model, criterion, use_cuda, mode):
     for i in range(num_class):
         if classwise_acc[i] == 0:
             # To prevent the N/A values, we set the minimum value as 0.001
-            GM *= (1/(100 * num_class)) ** (1/num_class)
+            GM *= (1 / (100 * num_class)) ** (1 / num_class)
         else:
-            GM *= (classwise_acc[i]) ** (1/num_class)
+            GM *= (classwise_acc[i]) ** (1 / num_class)
 
-    return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM, classwise_acc)
+    return losses.avg, top1.avg, section_acc.cpu().numpy(), GM, classwise_acc
 
 
 if __name__ == '__main__':
