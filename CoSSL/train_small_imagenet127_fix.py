@@ -93,7 +93,7 @@ def main():
     # Data
     print(f'==> Preparing imbalanced ImageNet127-{args.img_size}')
 
-    img_size2path = {32: '/BS/yfan/nobackup/ImageNet127_32', 64: '/BS/yfan/nobackup/ImageNet127_64'}
+    img_size2path = {32: '/dev/shm/small_imagenet127/res32', 64: '/dev/shm/small_imagenet127/res64'}
     tmp = get_small_imagenet(img_size2path[args.img_size], args.img_size, labeled_percent=args.labeled_percent,
                              seed=args.manualSeed, return_strong_labeled_set=False)
     N_SAMPLES_PER_CLASS, train_labeled_set, train_unlabeled_set, test_set = tmp
