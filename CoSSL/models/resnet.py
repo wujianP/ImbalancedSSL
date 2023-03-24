@@ -82,6 +82,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
         self.output = nn.Linear(512*block.expansion, num_classes, bias=classifier_bias)
+        self.output_ = nn.Linear(512*block.expansion, num_classes, bias=classifier_bias)
 
         self.rotation = rotation
         if self.rotation:
@@ -118,6 +119,7 @@ class ResNet(nn.Module):
         out = self.layer4(out)
         f = F.adaptive_avg_pool2d(out, 1)
         c = self.output(f.squeeze())
+        c_ = self.output_(f.squeeze())
 
         if self.rotation:
             r = self.rot(f.squeeze())
