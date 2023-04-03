@@ -279,6 +279,6 @@ class ResNet(nn.Module):
         logits = self.fc(feats)
 
         if return_feature:
-            return logits, feats
+            return [logits, None, feats]
         else:
-            return logits
+            return logits, None

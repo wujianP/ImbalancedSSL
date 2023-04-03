@@ -1,5 +1,6 @@
 """
-This script should be used after the training of the train_imagenetLT_fix.py
+This script should be used after the training of the train_samll_imagenet127_fix.py
+
 """
 
 from __future__ import print_function
@@ -19,29 +20,35 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data as data
 from torch.utils.data.sampler import BatchSampler
+from dataset.fix_imagenet import get_imagenet
 import torch.nn.functional as F
 
-# import models.resnet as models
-from dataset.fix_imagenet import get_imagenet
+import models.resnet as models
+# from dataset.fix_small_imagenet127 import get_small_imagenet
 
 from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, \
     get_weighted_sampler, make_imb_data, save_checkpoint, FixMatch_Loss
 
+
 parser = argparse.ArgumentParser(description='PyTorch FixMatch Training')
 # Optimization options
-parser.add_argument('--epochs', default=40, type=int, metavar='N', help='number of total epochs to run')
-parser.add_argument('--start_epoch', default=160, type=int, metavar='N', help='manual epoch number (useful on restarts)')
-parser.add_argument('--batch_size', default=64, type=int, metavar='N', help='train batchsize')
-parser.add_argument('--lr', '--learning-rate', default=0.2, type=float, metavar='LR', help='initial learning rate')
-parser.add_argument('--lr_tfe', default=0.2, type=float)
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
+                    help='number of total epochs to run')
+parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
+                    help='manual epoch number (useful on restarts)')
+parser.add_argument('--batch_size', default=64, type=int, metavar='N',
+                    help='train batchsize')
+parser.add_argument('--lr', '--learning-rate', default=0.002, type=float,
+                    metavar='LR', help='initial learning rate')
+parser.add_argument('--lr_tfe', default=0.002, type=float)
 parser.add_argument('--wd_tfe', default=5e-4, type=float)
-parser.add_argument('--warm_tfe', default=4, type=int)
+parser.add_argument('--warm_tfe', default=10, type=int)
 # Checkpoints
-parser.add_argument('--resume', required=True, type=str, help='path to latest checkpoint (default: none)')
+parser.add_argument('--resume', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
 parser.add_argument('--out', default='result', help='Directory to output the result')
 # Method options
-parser.add_argument('--labeled_ratio', type=int, default=20, help='by default we take 10% labeled data')
-parser.add_argument('--val-iteration', type=int, default=46, help='Frequency for the evaluation')
+parser.add_argument('--labeled_ratio', type=float, default=0.1, help='by default we take 10% labeled data')
+parser.add_argument('--val-iteration', type=int, default=148, help='Frequency for the evaluation')
 # Hyperparameters for FixMatch
 parser.add_argument('--tau', default=0.7, type=float, help='hyper-parameter for pseudo-label of FixMatch')
 parser.add_argument('--ema-decay', default=0.999, type=float)
@@ -50,10 +57,10 @@ parser.add_argument('--max_lam', default=0.8, type=float)
 parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
 # Device options
 parser.add_argument('--gpu', default='0', type=str, help='id(s) for CUDA_VISIBLE_DEVICES')
-
 # added by wj
 parser.add_argument('--data_path', required=True, type=str)
 parser.add_argument('--annotation_file_path', required=True, type=str)
+parser.add_argument('--save_freq', type=int, default=20)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -78,28 +85,29 @@ num_class = 1000
 
 
 class merge_two_datasets(data.Dataset):
-    def __init__(self, data1, data2, targets1, targets2,
+    def __init__(self, path1, path2, label1, label2,
                  transform=None, target_transform=None):
-        self.data = copy.deepcopy(np.concatenate([data1, data2], axis=0))
-        self.targets = copy.deepcopy(np.concatenate([targets1, targets2], axis=0))
-        assert len(self.data) == len(self.targets)
+        self.path = path1 + path2
+        self.label = label1 + label2
+        assert len(self.path) == len(self.label)
         self.transform = transform
         self.target_transform = target_transform
 
     def __getitem__(self, index):
-        img, target = self.data[index], self.targets[index]
-        img = Image.fromarray(img)
+        path = self.path[index]
+        label = self.label[index]
+
+        with open(path, 'rb') as f:
+            sample = Image.open(f).convert('RGB')
+        f.close()
 
         if self.transform is not None:
-            img = self.transform(img)
+            sample = self.transform(sample)
 
-        if self.target_transform is not None:
-            target = self.target_transform(target)
-
-        return img, target, index
+        return sample, label, index
 
     def __len__(self):
-        return len(self.data)
+        return len(self.path)
 
 
 def main():
@@ -111,9 +119,11 @@ def main():
     # Data
     print(f'==> Preparing imbalanced ImageNetLT-{args.labeled_ratio}')
 
-    # # img_size2path = {32: '/BS/yfan/nobackup/ImageNet127_32', 64: '/BS/yfan/nobackup/ImageNet127_64'}
+    # img_size2path = {32: '/BS/yfan/nobackup/ImageNet127_32', 64: '/BS/yfan/nobackup/ImageNet127_64'}
     # tmp = get_small_imagenet(img_size2path[args.img_size], args.img_size, labeled_percent=args.labeled_percent,
     #                          seed=args.manualSeed, return_strong_labeled_set=True)
+    # target_disb, train_labeled_set, train_unlabeled_set, test_set, _ = tmp
+
     tmp = get_imagenet(
         root=args.data_path,
         annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
@@ -129,23 +139,23 @@ def main():
     print(N_SAMPLES_PER_CLASS)
 
     crt_labeled_set = copy.deepcopy(train_labeled_set)
-    crt_full_set = merge_two_datasets(crt_labeled_set.data, train_unlabeled_set.data, crt_labeled_set.targets,
-                                      train_unlabeled_set.targets, transform=crt_labeled_set.transform)
+    crt_full_set = merge_two_datasets(crt_labeled_set.path_list, train_unlabeled_set.path_list,
+                                      crt_labeled_set.targets, train_unlabeled_set.targets, transform=crt_labeled_set.transform)
 
-    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=6,
+    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=4,
                                           drop_last=True)
-    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.batch_size, shuffle=True,
-                                            num_workers=6, drop_last=True)
-    crt_full_loader = data.DataLoader(crt_full_set, batch_size=args.batch_size, shuffle=True, num_workers=6,
-                                      drop_last=True)
-    test_loader = data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=6)
+    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.batch_size, shuffle=True, num_workers=4,
+                                            drop_last=True)
+    crt_full_loader = data.DataLoader(crt_full_set, batch_size=args.batch_size, shuffle=True, num_workers=4,
+                                            drop_last=True)
+    test_loader = data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=4)
 
     # Model
     print("==> creating ResNet50")
 
-    def create_model(ema=False, clf_bias=True):
-        from models.resnetwithABC import ResNet
+    def create_model(ema=False):
         # model = models.ResNet50(num_classes=num_class, rotation=True, classifier_bias=clf_bias)
+        from models.resnetwithABC import ResNet
         model = ResNet(num_classes=num_class, encoder_name='resnet', pretrained=False)
         model = model.cuda()
 
@@ -160,10 +170,9 @@ def main():
     print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters()) / 1000000.0))
     train_criterion = FixMatch_Loss()
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
     ema_optimizer = WeightEMA(model, ema_model, alpha=args.ema_decay)
-    lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
-    start_epoch = 160
+    start_epoch = 0
 
     print('==> Resuming from checkpoint..')
     assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
@@ -171,15 +180,12 @@ def main():
     model.load_state_dict(checkpoint['state_dict'])
     ema_model.load_state_dict(checkpoint['ema_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer'])
-    lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
 
-    # for group in optimizer.param_groups:
-    #     group['weight_decay'] = 0.02 * args.lr
-    logger = Logger(os.path.join(args.out, 'log.txt'), title='Fix-ImagenetLT')
-    logger.set_names(
-        ['Train Loss', 'Train Loss X', 'Train Loss U', 'Train Loss Teacher', 'Mask', 'Total Acc.', 'Used Acc.',
-         'Teacher Acc.',
-         'Test Loss', 'Test Acc.'])
+    for group in optimizer.param_groups:
+        group['weight_decay'] = 0.02 * args.lr
+    logger = Logger(os.path.join(args.out, 'log.txt'), title='fix-cifar')
+    logger.set_names(['Train Loss', 'Train Loss X', 'Train Loss U', 'Train Loss Teacher', 'Mask', 'Total Acc.', 'Used Acc.', 'Teacher Acc.',
+                      'Test Loss', 'Test Acc.'])
 
     teacher_head = nn.Linear(model.fc.in_features, num_class, bias=True).cuda()
     ema_teacher = nn.Linear(model.fc.in_features, num_class, bias=True).cuda()
@@ -193,44 +199,39 @@ def main():
             wd_params.append(param)
     param_list = [{'params': wd_params, 'weight_decay': args.wd_tfe}, {'params': non_wd_params, 'weight_decay': 0}]
 
-    # teacher_optimizer = optim.Adam(param_list, lr=args.lr_tfe)
-    teacher_optimizer = optim.SGD(param_list, lr=args.lr_tfe, momentum=0.9)
+    teacher_optimizer = optim.Adam(param_list, lr=args.lr_tfe)
     ema_teacher_optimizer = WeightEMA(teacher_head, ema_teacher, alpha=args.ema_decay)
 
     # TFE warmup
-    #  TODO: 改到这里了
     init_teacher, init_ema_teacher = classifier_warmup(copy.deepcopy(ema_model), crt_labeled_set, crt_full_set,
                                                        N_SAMPLES_PER_CLASS, num_class, use_cuda)
-    teacher_head.weight.data.copy_(init_teacher.output.weight.data)
-    teacher_head.bias.data.copy_(init_teacher.output.bias.data)
-    ema_teacher.weight.data.copy_(init_ema_teacher.output.weight.data)
-    ema_teacher.bias.data.copy_(init_ema_teacher.output.bias.data)
+    teacher_head.weight.data.copy_(init_teacher.fc.weight.data)
+    teacher_head.bias.data.copy_(init_teacher.fc.bias.data)
+    ema_teacher.weight.data.copy_(init_ema_teacher.fc.weight.data)
+    ema_teacher.bias.data.copy_(init_ema_teacher.fc.bias.data)
 
     # Main function
     test_accs = []
-    for epoch in range(start_epoch+args.warm_tfe, args.epochs + start_epoch):
+    for epoch in range(start_epoch, args.epochs):
         print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, state['lr']))
 
         # Construct balanced dataset
         class_balanced_disb = torch.Tensor(make_imb_data(30000, num_class, 1))
         class_balanced_disb = class_balanced_disb / class_balanced_disb.sum()
-        sampler_x = get_weighted_sampler(class_balanced_disb, torch.Tensor(N_SAMPLES_PER_CLASS),
-                                         crt_labeled_set.targets)
+        sampler_x = get_weighted_sampler(class_balanced_disb, torch.Tensor(N_SAMPLES_PER_CLASS), crt_labeled_set.targets)
         batch_sampler_x = BatchSampler(sampler_x, batch_size=args.batch_size, drop_last=True)
         crt_labeled_loader = data.DataLoader(crt_labeled_set, batch_sampler=batch_sampler_x, num_workers=8)
 
         # Training part
         *train_info, = train(labeled_trainloader, unlabeled_trainloader, model, ema_model, optimizer, ema_optimizer,
-                             crt_labeled_loader, crt_full_loader, teacher_head, ema_teacher, teacher_optimizer,
-                             ema_teacher_optimizer,
+                             crt_labeled_loader, crt_full_loader, teacher_head, ema_teacher, teacher_optimizer, ema_teacher_optimizer,
                              train_criterion, epoch, use_cuda, N_SAMPLES_PER_CLASS)
 
         # Evaluation part
-        test_loss, test_acc, *_ = validate_teacher(test_loader, ema_model, ema_teacher, criterion, use_cuda,
-                                                   mode='Test')
+        test_loss, test_acc, *_ = validate_teacher(test_loader, ema_model, ema_teacher, criterion, use_cuda, mode='Test')
 
         is_best = False
-        if test_acc > best_acc:
+        if test_acc >= best_acc:
             best_acc = test_acc
             is_best = True
 
@@ -238,22 +239,17 @@ def main():
         logger.append([*train_info, test_loss, test_acc])
 
         # Save models
-        save_checkpoint(
-            state={
-                'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
-                'ema_state_dict': ema_model.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'teacher_optimizer': teacher_optimizer.state_dict(),
-                'teacher_head': teacher_head.state_dict(),
-                'ema_teacher': ema_teacher.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(), },
-            epoch=epoch,
-            save_path=args.out,
-            save_freq=10,
-            is_best=is_best,)
+        save_checkpoint({
+            'epoch': epoch + 1,
+            'state_dict': model.state_dict(),
+            'ema_state_dict': ema_model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'teacher_optimizer': teacher_optimizer.state_dict(),
+            'teacher_head': teacher_head.state_dict(),
+            'ema_teacher': ema_teacher.state_dict(),
+        }, epoch, args.out, save_freq=args.save_freq, is_best=is_best)
+
         test_accs.append(test_acc)
-        lr_scheduler.step()
 
     logger.close()
 
@@ -265,10 +261,12 @@ def main():
     print(args.out)
 
 
-def classifier_warmup(model, train_labeled_set, train_unlabeled_set, N_SAMPLES_PER_CLASS, num_class, use_cuda, lr, lr_scheduler):
+def classifier_warmup(model, train_labeled_set, train_unlabeled_set, N_SAMPLES_PER_CLASS, num_class, use_cuda):
+
     # define hypers for cRT
     val_iteration = args.val_iteration
     epochs = args.warm_tfe
+    lr = args.lr_tfe
     ema_decay = args.ema_decay
     weight_decay = args.wd_tfe
     batch_size = args.batch_size
@@ -297,21 +295,20 @@ def classifier_warmup(model, train_labeled_set, train_unlabeled_set, N_SAMPLES_P
     ema_optimizer = WeightEMA(model, ema_model, alpha=ema_decay)
 
     wd_params, non_wd_params = [], []
-    for name, param in model.output.named_parameters():
+    for name, param in model.fc.named_parameters():
         if 'bn' in name or 'bias' in name:
             non_wd_params.append(param)  # bn.weight, bn.bias and classifier.bias, conv2d.bias
         else:
             wd_params.append(param)
     param_list = [{'params': wd_params, 'weight_decay': weight_decay}, {'params': non_wd_params, 'weight_decay': 0}]
-    print('    Total params: %.2fM' % (sum(p.numel() for p in model.output.parameters()) / 1000000.0))
+    print('    Total params: %.2fM' % (sum(p.numel() for p in model.fc.parameters()) / 1000000.0))
 
-    # optimizer = optim.Adam(param_list, lr=lr)
-    optimizer = optim.SGD(param_list, lr=lr, momentum=0.9)
-
+    optimizer = optim.Adam(param_list, lr=lr)
+    
     # Main function
     for epoch in range(epochs):
         print('\ncRT: Epoch: [%d | %d] LR: %f' % (epoch + 1, epochs, optimizer.param_groups[0]['lr']))
-        classifier_train(labeled_trainloader, unlabeled_trainloader, model, optimizer, lr_scheduler, ema_optimizer,
+        classifier_train(labeled_trainloader, unlabeled_trainloader, model, optimizer, None, ema_optimizer,
                          tfe_model, N_SAMPLES_PER_CLASS, val_iteration, use_cuda)
 
     return model, ema_model
@@ -321,15 +318,14 @@ def weight_imprint(model, labeled_set, num_classes):
     model = model.cuda()
     model.eval()
 
-    labeledloader = torch.utils.data.DataLoader(labeled_set, batch_size=100, shuffle=False, num_workers=0,
-                                                drop_last=False)
+    labeledloader = torch.utils.data.DataLoader(labeled_set, batch_size=100, shuffle=False, num_workers=0, drop_last=False)
 
     with torch.no_grad():
         bar = Bar('Processing imprinting...', max=len(labeledloader))
         for batch_idx, (inputs, targets, _) in enumerate(labeledloader):
             inputs = inputs.cuda()
-            _, features = model(inputs, True)
-            output = features.squeeze()  # Note: a flatten is needed here
+            _, _, features = model(inputs, True)
+            output = features.squeeze()   # Note: a flatten is needed here
 
             if batch_idx == 0:
                 output_stack = output.cpu()
@@ -342,7 +338,7 @@ def weight_imprint(model, labeled_set, num_classes):
             bar.next()
         bar.finish()
 
-    new_weight = torch.zeros(num_classes, model.output.in_features)
+    new_weight = torch.zeros(num_classes, model.fc.in_features)
     for i in range(num_classes):
         tmp = output_stack[target_stack == i].mean(0)
         new_weight[i] = tmp / tmp.norm(p=2)
@@ -352,7 +348,7 @@ def weight_imprint(model, labeled_set, num_classes):
     return model
 
 
-def classifier_train(labeled_loader, unlabeled_loader, model, optimizer, lr_scheduler, ema_optimizer,
+def classifier_train(labeled_loader, unlabeled_loader, model, optimizer, scheduler, ema_optimizer,
                      tfe_model, num_samples_per_class, val_iteration, use_cuda):
     batch_time = AverageMeter()
     data_time = AverageMeter()
@@ -390,9 +386,9 @@ def classifier_train(labeled_loader, unlabeled_loader, model, optimizer, lr_sche
             input_u = input_u.cuda()
 
         with torch.no_grad():
-            _, crt_feat_x = tfe_model(inputs_x, return_feature=True)
+            _, _, crt_feat_x = tfe_model(inputs_x, return_feature=True)
             crt_feat_x = crt_feat_x.squeeze()
-            _, crt_feat_u = tfe_model(input_u, return_feature=True)
+            _, _, crt_feat_u = tfe_model(input_u, return_feature=True)
             crt_feat_u = crt_feat_u.squeeze()
 
             new_feat_list = []
@@ -412,14 +408,15 @@ def classifier_train(labeled_loader, unlabeled_loader, model, optimizer, lr_sche
             new_feat_tensor = torch.stack(new_feat_list, dim=0)  # [64, 128]
             new_target_tensor = torch.stack(new_target_list, dim=0)  # [64,]
 
-        logits = model.output(new_feat_tensor)
+        logits = model.fc(new_feat_tensor)
         loss = F.cross_entropy(logits, new_target_tensor)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         ema_optimizer.step()
-        lr_scheduler.step()
+        if scheduler is not None:
+            scheduler.step()
 
         # record loss
         acc = (torch.argmax(logits, dim=1) == new_target_tensor).float().mean()
@@ -432,20 +429,20 @@ def classifier_train(labeled_loader, unlabeled_loader, model, optimizer, lr_sche
 
         # plot progress
         bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
-                     'Loss: {loss:.4f} | Train_Acc: {train_acc:.4f}'.format(
-            batch=batch_idx + 1,
-            size=args.val_iteration,
-            data=data_time.avg,
-            bt=batch_time.avg,
-            total=bar.elapsed_td,
-            eta=bar.eta_td,
-            loss=losses.avg,
-            train_acc=train_acc.avg,
-        )
+                      'Loss: {loss:.4f} | Train_Acc: {train_acc:.4f}'.format(
+                    batch=batch_idx + 1,
+                    size=args.val_iteration,
+                    data=data_time.avg,
+                    bt=batch_time.avg,
+                    total=bar.elapsed_td,
+                    eta=bar.eta_td,
+                    loss=losses.avg,
+                    train_acc=train_acc.avg,
+                    )
         bar.next()
     bar.finish()
 
-    return losses.avg, train_acc.avg
+    return (losses.avg, train_acc.avg)
 
 
 def train(labeled_trainloader, unlabeled_trainloader, model, ema_model, optimizer, ema_optimizer,
@@ -472,8 +469,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, ema_model, optimize
     model.train()
     ema_model.eval()
 
-    tfe_prob = [(max(num_labeled_data_per_class) - i) / max(num_labeled_data_per_class) for i in
-                num_labeled_data_per_class]
+    tfe_prob = [(max(num_labeled_data_per_class) - i) / max(num_labeled_data_per_class) for i in num_labeled_data_per_class]
     for batch_idx in range(args.val_iteration):
         try:
             inputs_x, targets_x, _ = labeled_train_iter.next()
@@ -596,28 +592,28 @@ def train(labeled_trainloader, unlabeled_trainloader, model, ema_model, optimize
         bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
                      'Loss: {loss:.4f} | Loss_x: {loss_x:.4f} | Loss_u: {loss_u:.4f} | Loss_t: {loss_t:.4f} |' \
                      'Mask: {mask:.4f}| Use_acc: {used_acc:.4f} | teacher_acc: {teacher_acc:.4f}'.format(
-            batch=batch_idx + 1,
-            size=args.val_iteration,
-            data=data_time.avg,
-            bt=batch_time.avg,
-            total=bar.elapsed_td,
-            eta=bar.eta_td,
-            loss=losses.avg,
-            loss_x=losses_x.avg,
-            loss_u=losses_u.avg,
-            loss_t=losses_teacher.avg,
-            mask=mask_prob.avg,
-            used_acc=used_c.avg,
-            teacher_acc=teacher_acc.avg,
-        )
+                    batch=batch_idx + 1,
+                    size=args.val_iteration,
+                    data=data_time.avg,
+                    bt=batch_time.avg,
+                    total=bar.elapsed_td,
+                    eta=bar.eta_td,
+                    loss=losses.avg,
+                    loss_x=losses_x.avg,
+                    loss_u=losses_u.avg,
+                    loss_t=losses_teacher.avg,
+                    mask=mask_prob.avg,
+                    used_acc=used_c.avg,
+                    teacher_acc=teacher_acc.avg,
+                    )
         bar.next()
     bar.finish()
 
-    return (
-    losses.avg, losses_x.avg, losses_u.avg, losses_teacher.avg, mask_prob.avg, total_c.avg, used_c.avg, teacher_acc.avg)
+    return (losses.avg, losses_x.avg, losses_u.avg, losses_teacher.avg, mask_prob.avg, total_c.avg, used_c.avg, teacher_acc.avg)
 
 
 def validate_teacher(valloader, model, head, criterion, use_cuda, mode):
+
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -665,23 +661,23 @@ def validate_teacher(valloader, model, head, criterion, use_cuda, mode):
                 classwise_correct[i] += (class_mask * pred_mask).sum()
                 classwise_num[i] += class_mask.sum()
 
-            # measure elapsed time
+             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
 
             # plot progress
-            bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
-                         'Loss: {loss:.4f} | top1: {top1: .4f} | top5: {top5: .4f}'.format(
-                batch=batch_idx + 1,
-                size=len(valloader),
-                data=data_time.avg,
-                bt=batch_time.avg,
-                total=bar.elapsed_td,
-                eta=bar.eta_td,
-                loss=losses.avg,
-                top1=top1.avg,
-                top5=top5.avg,
-            )
+            bar.suffix  = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
+                          'Loss: {loss:.4f} | top1: {top1: .4f} | top5: {top5: .4f}'.format(
+                        batch=batch_idx + 1,
+                        size=len(valloader),
+                        data=data_time.avg,
+                        bt=batch_time.avg,
+                        total=bar.elapsed_td,
+                        eta=bar.eta_td,
+                        loss=losses.avg,
+                        top1=top1.avg,
+                        top5=top5.avg,
+                        )
             bar.next()
         bar.finish()
 
@@ -695,9 +691,9 @@ def validate_teacher(valloader, model, head, criterion, use_cuda, mode):
     for i in range(num_class):
         if classwise_acc[i] == 0:
             # To prevent the N/A values, we set the minimum value as 0.001
-            GM *= (1 / (100 * num_class)) ** (1 / num_class)
+            GM *= (1/(100 * num_class)) ** (1/num_class)
         else:
-            GM *= (classwise_acc[i]) ** (1 / num_class)
+            GM *= (classwise_acc[i]) ** (1/num_class)
 
     return (losses.avg, classwise_acc.mean().tolist(), section_acc.cpu().numpy(), GM)
 
