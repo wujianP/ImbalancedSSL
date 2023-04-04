@@ -96,7 +96,9 @@ def main():
 
     N_SAMPLES_PER_CLASS = sample_num_per_class['labeled']
     U_SAMPLES_PER_CLASS = sample_num_per_class['unlabeled']
-    ir2=N_SAMPLES_PER_CLASS[-1]/np.array(N_SAMPLES_PER_CLASS)
+    ir2=np.array(N_SAMPLES_PER_CLASS).min()/np.array(N_SAMPLES_PER_CLASS)
+    print(N_SAMPLES_PER_CLASS)
+    print(ir2)
 
     # Model
     print("==> creating ResNet50 with abc")
@@ -104,6 +106,8 @@ def main():
     def create_model(ema=False):
         from models.resnetwithABC import ResNet
         model = ResNet(num_classes=num_class, encoder_name='resnet', pretrained=False)
+        # from models.wideresnetwithABC import WideResNet
+        # model = WideResNet(num_classes=num_class)
         model = model.cuda()
 
         params = list(model.parameters())
@@ -231,7 +235,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
 
         max_p, p_hat = torch.max(targets_u2, dim=1)
         p_hat = torch.zeros(batch_size, num_class).cuda().scatter_(1, p_hat.view(-1, 1), 1)
-        select_mask = max_p.ge(0.95)
+        select_mask = max_p.ge(0.7)
         select_mask = torch.cat([select_mask, select_mask], 0).float()
 
         all_targets = torch.cat([targets_x2, p_hat, p_hat], dim=0)
@@ -251,7 +255,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
         logits = F.softmax(logit)
         logitsu1 = F.softmax(logitu1)
         max_p2, label_u = torch.max(logitsu1, dim=1)
-        select_mask2 = max_p2.ge(0.95)
+        select_mask2 = max_p2.ge(0.7)
         label_u = torch.zeros(batch_size, num_class).scatter_(1, label_u.cpu().view(-1, 1), 1)
         ir22 = 1 - (epoch / 500) * (1 - ir2)
         maskforbalanceu = torch.bernoulli(torch.sum(label_u.cuda(0) * torch.tensor(ir22).cuda(0), dim=1).detach())
