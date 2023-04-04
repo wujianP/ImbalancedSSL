@@ -7,7 +7,7 @@ import shutil
 import time
 import random
 import numpy as np
-from ABC.models import wideresnetwithABC as models
+
 import torch
 import torch.nn as nn
 import torch.nn.parallel
