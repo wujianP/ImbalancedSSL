@@ -247,7 +247,7 @@ def main():
             'teacher_optimizer': teacher_optimizer.state_dict(),
             'teacher_head': teacher_head.state_dict(),
             'ema_teacher': ema_teacher.state_dict(),
-        }, epoch, args.out, save_freq=args.save_freq, is_best=is_best)
+        }, epoch + 1, args.out, save_freq=args.save_freq, is_best=is_best)
 
         test_accs.append(test_acc)
 

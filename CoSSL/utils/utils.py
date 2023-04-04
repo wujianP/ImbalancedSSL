@@ -118,7 +118,7 @@ def interleave(xy, batch):
 
 def save_checkpoint(state, epoch, save_path, save_freq, is_best):
     if epoch % save_freq == 0:
-        torch.save(state, os.path.join(save_path, f'checkpoint_{epoch + 1}.pth'))
+        torch.save(state, os.path.join(save_path, f'checkpoint_{epoch}.pth'))
     # save the best checkpoint
     if is_best:
         if os.path.isfile(os.path.join(save_path, 'best.pth')):
