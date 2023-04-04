@@ -49,6 +49,7 @@ parser.add_argument('--ema-decay', default=0.999, type=float)
 parser.add_argument('--data_path', required=True, type=str)
 parser.add_argument('--annotation_file_path', required=True, type=str)
 parser.add_argument('--save_freq', type=int, default=40)
+parser.add_argument('--labeled_ratio', type=int)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
