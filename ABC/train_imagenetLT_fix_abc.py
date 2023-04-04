@@ -126,7 +126,7 @@ def main():
     start_epoch = 0
 
     # Resume
-    title = 'ABCfix-' + args.dataset
+    title = 'ABCfix-' + 'ImageNetLT'
     if args.resume:
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
