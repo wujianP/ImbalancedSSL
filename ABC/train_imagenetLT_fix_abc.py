@@ -364,12 +364,7 @@ def validate(valloader, model,criterion, mode):
                         )
             bar.next()
         bar.finish()
-    if args.dataset=='cifar10':
-        accperclass=accperclass/1000
-    elif args.dataset=='svhn':
-        accperclass=accperclass/1500
-    elif args.dataset=='cifar100':
-        accperclass=accperclass/100
+    accperclass=accperclass/20
     return (losses.avg, top1.avg, accperclass)
 
 
