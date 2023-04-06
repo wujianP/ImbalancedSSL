@@ -381,7 +381,7 @@ def validate(valloader, model, criterion, use_cuda, mode):
         else:
             GM *= (classwise_acc[i]) ** (1/num_class)
 
-    return (losses.avg, top1.avg, section_acc.numpy(), GM, classwise_acc)
+    return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM, classwise_acc)
 
 
 if __name__ == '__main__':
