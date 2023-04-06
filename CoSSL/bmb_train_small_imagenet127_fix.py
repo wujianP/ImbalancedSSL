@@ -188,8 +188,8 @@ def main():
     print('Mean bAcc:')
     print(np.mean(test_accs[-20:]))
 
-    print('Mean GM:')
-    print(np.mean(test_gms[-20:]))
+    # print('Mean GM:')
+    # print(np.mean(test_gms[-20:]))
 
     print('Name of saved folder:')
     print(args.out)

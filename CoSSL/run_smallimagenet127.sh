@@ -15,7 +15,7 @@ python bmb_train_small_imagenet127_fix_cossl.py \
 --labeled_percent 0.01 \
 --img_size 32 \
 --epoch 100 \
---val-iteration 500 \
+--val-iteration 10 \
 --batch_size 64 \
 --lr 0.002 \
 --lr_tfe 0.002 \
