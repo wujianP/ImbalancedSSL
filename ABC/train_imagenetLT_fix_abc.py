@@ -3,7 +3,6 @@ from __future__ import print_function
 
 import argparse
 import os
-import shutil
 import time
 import random
 import numpy as np
@@ -24,22 +23,20 @@ parser.add_argument('--epochs', default=300, type=int, metavar='N',
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--batch_size', default=64, type=int, metavar='N',
-                    help='train batchsize')
+                    help='train batch size')
 parser.add_argument('--lr', '--learning-rate', default=0.002, type=float,
                     metavar='LR', help='initial learning rate')
 # Checkpoints
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--out', default='result',
-                        help='Directory to output the result')
+parser.add_argument('--out', default='result', help='Directory to output the result')
 # Miscs
 parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
-#Device options
-parser.add_argument('--gpu', default='0', type=str,
-                    help='id(s) for CUDA_VISIBLE_DEVICES')
 
-parser.add_argument('--val-iteration', type=int, default=500,
-                        help='Frequency for the evaluation')
+# Device options
+parser.add_argument('--gpu', default='0', type=str, help='id(s) for CUDA_VISIBLE_DEVICES')
+
+parser.add_argument('--val-iteration', type=int, default=500, help='Frequency for the evaluation')
 
 # Hyperparameters for FixMatch
 parser.add_argument('--tau', default=0.7, type=float, help='hyper-parameter for pseudo-label of FixMatch')
@@ -96,7 +93,7 @@ def main():
 
     N_SAMPLES_PER_CLASS = sample_num_per_class['labeled']
     U_SAMPLES_PER_CLASS = sample_num_per_class['unlabeled']
-    ir2=np.array(N_SAMPLES_PER_CLASS).min()/np.array(N_SAMPLES_PER_CLASS)
+    ir2 = np.array(N_SAMPLES_PER_CLASS).min() / np.array(N_SAMPLES_PER_CLASS)
     print(N_SAMPLES_PER_CLASS)
     print(ir2)
 
@@ -118,7 +115,7 @@ def main():
         return model, params
 
     model, params = create_model()
-    ema_model,  _ = create_model(ema=True)
+    ema_model, _ = create_model(ema=True)
 
     cudnn.benchmark = True
     print('    Total params: %.2fM' % (sum(p.numel() for p in params) / 1000000.0))
@@ -144,19 +141,18 @@ def main():
         logger = Logger(os.path.join(args.out, 'log.txt'), title=title, resume=True)
     else:
         logger = Logger(os.path.join(args.out, 'log.txt'), title=title)
-        logger.set_names(['Train Loss', 'Train Loss X', 'Train Loss U', 'abcloss','Test Loss', 'Test Acc.'])
+        logger.set_names(['Train Loss', 'Train Loss X', 'Train Loss U', 'abcloss', 'Test Loss', 'Test Acc.'])
 
     for epoch in range(start_epoch, args.epochs):
         print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, state['lr']))
 
-
         # Training part
         train_loss, train_loss_x, train_loss_u, abcloss = train(labeled_trainloader,
-                                                                                                unlabeled_trainloader,
-                                                                                                model, optimizer,
-                                                                                                ema_optimizer,
-                                                                                                train_criterion,
-                                                                                                epoch,ir2)
+                                                                unlabeled_trainloader,
+                                                                model, optimizer,
+                                                                ema_optimizer,
+                                                                train_criterion,
+                                                                epoch, ir2)
 
         test_loss, test_acc, testclassacc = validate(test_loader, ema_model, criterion, mode='Test Stats ')
 
@@ -171,19 +167,20 @@ def main():
         # elif args.dataset == 'cifar100':
         #     print("each class accuracy test", testclassacc, testclassacc.mean(), testclassacc[:50].mean(),testclassacc[50:].mean())
 
-        logger.append([train_loss, train_loss_x, train_loss_u,abcloss, test_loss, test_acc])
+        logger.append([train_loss, train_loss_x, train_loss_u, abcloss, test_loss, test_acc])
 
         # Save models
         save_checkpoint({
-                'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
-                'ema_state_dict': ema_model.state_dict(),
-                'optimizer': optimizer.state_dict(),
-            }, epoch + 1, args.out, save_freq=args.save_freq, is_best=is_best)
+            'epoch': epoch + 1,
+            'state_dict': model.state_dict(),
+            'ema_state_dict': ema_model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+        }, epoch + 1, args.out, save_freq=args.save_freq, is_best=is_best)
 
     logger.close()
 
-def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch,ir2):
+
+def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch, ir2):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -215,16 +212,16 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
         batch_size = inputs_x.size(0)
 
         # Transform label to one-hot
-        targets_x2 = torch.zeros(batch_size, num_class).scatter_(1, targets_x.view(-1,1), 1)
+        targets_x2 = torch.zeros(batch_size, num_class).scatter_(1, targets_x.view(-1, 1), 1)
 
         inputs_x, targets_x2 = inputs_x.cuda(), targets_x2.cuda(non_blocking=True)
-        inputs_u, inputs_u2, inputs_u3  = inputs_u.cuda(), inputs_u2.cuda(), inputs_u3.cuda()
+        inputs_u, inputs_u2, inputs_u3 = inputs_u.cuda(), inputs_u2.cuda(), inputs_u3.cuda()
 
         # Generate the pseudo labels
         with torch.no_grad():
             # Generate the pseudo labels by aggregation and sharpening
-            q1=model(inputs_u)
-            outputs_u= model.classify(q1)
+            q1 = model(inputs_u)
+            outputs_u = model.classify(q1)
             targets_u2 = torch.softmax(outputs_u, dim=1).detach()
 
         targets_u = torch.argmax(targets_u2, dim=1)
@@ -240,10 +237,10 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
 
         all_targets = torch.cat([targets_x2, p_hat, p_hat], dim=0)
 
-        logits_x=model.classify(q)
-        logits_u1=model.classify(q2)
-        logits_u2=model.classify(q3)
-        logits_u = torch.cat([logits_u1,logits_u2],dim=0)
+        logits_x = model.classify(q)
+        logits_u1 = model.classify(q2)
+        logits_u2 = model.classify(q3)
+        logits_u = torch.cat([logits_u1, logits_u2], dim=0)
 
         maskforbalance = torch.bernoulli(torch.sum(targets_x2 * torch.tensor(ir2).cuda(0), dim=1).detach())
 
@@ -262,22 +259,31 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
         logitsu2 = F.softmax(logitu2)
         logitsu3 = F.softmax(logitu3)
 
-        abcloss = -torch.mean(maskforbalance * torch.sum(torch.log(logits) * targets_x2.cuda(0), dim=1))
-        abcloss1 = -torch.mean(
-            select_mask2 * maskforbalanceu * torch.sum(torch.log(logitsu2) * logitsu1.cuda(0).detach(), dim=1))
+        # abcloss = -torch.mean(maskforbalance * torch.sum(torch.log(logits) * targets_x2.cuda(0), dim=1))
+        # abcloss1 = -torch.mean(select_mask2 * maskforbalanceu * torch.sum(torch.log(logitsu2) * logitsu1.cuda(0).detach(), dim=1))
+        #
+        # abcloss2 = -torch.mean(
+        #     select_mask2 * maskforbalanceu * torch.sum(torch.log(logitsu3) * logitsu1.cuda(0).detach(), dim=1))
 
-        abcloss2 = -torch.mean(
-            select_mask2 * maskforbalanceu * torch.sum(torch.log(logitsu3) * logitsu1.cuda(0).detach(), dim=1))
+        abcloss = -torch.mean(maskforbalance * torch.sum(F.log_softmax(logit, dim=1) * targets_x2.cuda(0), dim=1))
+        abcloss1 = -torch.mean(select_mask2 * maskforbalanceu * torch.sum(F.log_softmax(logitu2, dim=1) * logitsu1.cuda(0).detach(), dim=1))
 
-        totalabcloss=abcloss+abcloss1+abcloss2
+        abcloss2 = -torch.mean(select_mask2 * maskforbalanceu * torch.sum(F.log_softmax(logitu3, dim=1) * logitsu1.cuda(0).detach(), dim=1))
+
+        totalabcloss = abcloss + abcloss1 + abcloss2
         Lx, Lu = criterion(logits_x, all_targets[:batch_size], logits_u, all_targets[batch_size:], select_mask)
-        loss = Lx + Lu+totalabcloss
+        loss = Lx + Lu + totalabcloss
 
         # record loss
         losses.update(loss.item(), inputs_x.size(0))
         losses_x.update(Lx.item(), inputs_x.size(0))
         losses_u.update(Lu.item(), inputs_x.size(0))
         losses_abc.update(abcloss.item(), inputs_x.size(0))
+
+        if np.isnan(losses.avg):
+            from IPython import embed
+            embed()
+
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
@@ -288,26 +294,26 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
         end = time.time()
 
         # plot progress
-        bar.suffix  = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
-                      'Loss: {loss:.4f} | Loss_x: {loss_x:.4f} | Loss_u: {loss_u:.4f}| Loss_m: {loss_m:.4f}'.format(
-                    batch=batch_idx + 1,
-                    size=args.val_iteration,
-                    data=data_time.avg,
-                    bt=batch_time.avg,
-                    total=bar.elapsed_td,
-                    eta=bar.eta_td,
-                    loss=losses.avg,
-                    loss_x=losses_x.avg,
-                    loss_u=losses_u.avg,
+        bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
+                     'Loss: {loss:.4f} | Loss_x: {loss_x:.4f} | Loss_u: {loss_u:.4f}| Loss_m: {loss_m:.4f}'.format(
+            batch=batch_idx + 1,
+            size=args.val_iteration,
+            data=data_time.avg,
+            bt=batch_time.avg,
+            total=bar.elapsed_td,
+            eta=bar.eta_td,
+            loss=losses.avg,
+            loss_x=losses_x.avg,
+            loss_u=losses_u.avg,
             loss_m=losses_abc.avg,
-                    )
+        )
         bar.next()
     bar.finish()
 
     return (losses.avg, losses_x.avg, losses_u.avg, losses_abc.avg)
 
-def validate(valloader, model,criterion, mode):
 
+def validate(valloader, model, criterion, mode):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -329,15 +335,16 @@ def validate(valloader, model,criterion, mode):
             inputs, targets = inputs.cuda(), targets.cuda(non_blocking=True)
             # compute output
             targetsonehot = torch.zeros(inputs.size()[0], num_class).scatter_(1, targets.cpu().view(-1, 1).long(), 1)
-            q=model(inputs)
-            outputs2=model.classify2(q)
+            q = model(inputs)
+            outputs2 = model.classify2(q)
 
             unbiasedscore = F.softmax(outputs2)
 
-            unbiased=torch.argmax(unbiasedscore,dim=1)
+            unbiased = torch.argmax(unbiasedscore, dim=1)
             outputs2onehot = torch.zeros(inputs.size()[0], num_class).scatter_(1, unbiased.cpu().view(-1, 1).long(), 1)
             loss = criterion(outputs2, targets)
-            accperclass = accperclass + torch.sum(targetsonehot * outputs2onehot, dim=0).cpu().detach().numpy().astype(np.int64)
+            accperclass = accperclass + torch.sum(targetsonehot * outputs2onehot, dim=0).cpu().detach().numpy().astype(
+                np.int64)
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs2, targets, topk=(1, 5))
@@ -345,36 +352,38 @@ def validate(valloader, model,criterion, mode):
             top1.update(prec1.item(), inputs.size(0))
             top5.update(prec5.item(), inputs.size(0))
 
-             # measure elapsed time
+            # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
 
             # plot progress
-            bar.suffix  = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
-                          'Loss: {loss:.4f} | top1: {top1: .4f} | top5: {top5: .4f}'.format(
-                        batch=batch_idx + 1,
-                        size=len(valloader),
-                        data=data_time.avg,
-                        bt=batch_time.avg,
-                        total=bar.elapsed_td,
-                        eta=bar.eta_td,
-                        loss=losses.avg,
-                        top1=top1.avg,
-                        top5=top5.avg,
-                        )
+            bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | ' \
+                         'Loss: {loss:.4f} | top1: {top1: .4f} | top5: {top5: .4f}'.format(
+                batch=batch_idx + 1,
+                size=len(valloader),
+                data=data_time.avg,
+                bt=batch_time.avg,
+                total=bar.elapsed_td,
+                eta=bar.eta_td,
+                loss=losses.avg,
+                top1=top1.avg,
+                top5=top5.avg,
+            )
             bar.next()
         bar.finish()
-    accperclass=accperclass/20
-    return (losses.avg, top1.avg, accperclass)
+
+    accperclass = accperclass / 20
+
+    return losses.avg, top1.avg, accperclass
 
 
 def f(x, a, b, c, d):
-    return np.sum(a * b * np.exp(-1 * x/c)) - d
+    return np.sum(a * b * np.exp(-1 * x / c)) - d
 
 
-def make_imb_data(max_num, class_num, gamma,imb):
+def make_imb_data(max_num, class_num, gamma, imb):
     if imb == 'long':
-        mu = np.power(1/gamma, 1/(class_num - 1))
+        mu = np.power(1 / gamma, 1 / (class_num - 1))
         class_num_list = []
         for i in range(class_num):
             if i == (class_num - 1):
@@ -382,7 +391,7 @@ def make_imb_data(max_num, class_num, gamma,imb):
             else:
                 class_num_list.append(int(max_num * np.power(mu, i)))
         print(class_num_list)
-    if imb=='step':
+    if imb == 'step':
         class_num_list = []
         for i in range(class_num):
             if i < int((class_num) / 2):
@@ -391,6 +400,7 @@ def make_imb_data(max_num, class_num, gamma,imb):
                 class_num_list.append(int(max_num / gamma))
         print(class_num_list)
     return list(class_num_list)
+
 
 def save_checkpoint(state, epoch, save_path, save_freq, is_best):
     if epoch % save_freq == 0:
@@ -401,6 +411,7 @@ def save_checkpoint(state, epoch, save_path, save_freq, is_best):
             os.remove(os.path.join(save_path, 'best.pth'))
         torch.save(state, os.path.join(save_path, 'best.pth'))
 
+
 def linear_rampup(current, rampup_length=args.epochs):
     if rampup_length == 0:
         return 1.0
@@ -408,12 +419,14 @@ def linear_rampup(current, rampup_length=args.epochs):
         current = np.clip(current / rampup_length, 0.0, 1.0)
         return float(current)
 
+
 class SemiLoss(object):
     def __call__(self, outputs_x, targets_x, outputs_u, targets_u, mask):
         Lx = -torch.mean(torch.sum(F.log_softmax(outputs_x, dim=1) * targets_x, dim=1))
         Lu = -torch.mean(torch.sum(F.log_softmax(outputs_u, dim=1) * targets_u, dim=1) * mask)
 
         return Lx, Lu
+
 
 class WeightEMA(object):
     def __init__(self, model, ema_model, alpha=0.999):
@@ -430,12 +443,13 @@ class WeightEMA(object):
     def step(self):
         one_minus_alpha = 1.0 - self.alpha
         for param, ema_param in zip(self.params, self.ema_params):
-            ema_param=ema_param.float()
-            param=param.float()
+            ema_param = ema_param.float()
+            param = param.float()
             ema_param.mul_(self.alpha)
             ema_param.add_(param * one_minus_alpha)
             # customized weight decay
             param.mul_(1 - self.wd)
+
 
 def interleave_offsets(batch, nu):
     groups = [batch // (nu + 1)] * (nu + 1)
@@ -447,6 +461,7 @@ def interleave_offsets(batch, nu):
     assert offsets[-1] == batch
     return offsets
 
+
 def interleave(xy, batch):
     nu = len(xy) - 1
     offsets = interleave_offsets(batch, nu)
@@ -454,6 +469,7 @@ def interleave(xy, batch):
     for i in range(1, nu + 1):
         xy[0][i], xy[i][i] = xy[i][i], xy[0][i]
     return [torch.cat(v, dim=0) for v in xy]
+
 
 if __name__ == '__main__':
     main()
