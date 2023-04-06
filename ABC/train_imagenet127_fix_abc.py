@@ -164,6 +164,7 @@ def main():
         #     print("each class accuracy test", testclassacc, testclassacc.mean(), testclassacc[:50].mean(),testclassacc[50:].mean())
 
         logger.append([train_loss, train_loss_x, train_loss_u, abcloss, test_loss, test_acc])
+        print('Mean-Acc: ', test_acc)
 
         # Save models
         save_checkpoint({
