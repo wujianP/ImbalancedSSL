@@ -1,8 +1,10 @@
-
-# Food-101@r=50
-CUDA_VISIBLE_DEVICES=0,1 python train_food_fix.py --ratio 2 --num_max 250 --imb_ratio_l 50 --imb_ratio_u 50 --out ./results/food/fixmatch/baseline/resnet50_N250_r50 --epochs 1000 --decay_epochs 9000 --batch-size 256 --tau 0.90
-CUDA_VISIBLE_DEVICES=0,1 python train_food_fix_cossl.py --ratio 2 --num_max 250 --imb_ratio_l 50 --imb_ratio_u 50 --resume ./results/food/fixmatch/baseline/resnet50_N250_r50/checkpoint_800.pth.tar --out ./results/food/fixmatch/cossl/resnet50_N250_r50 --epochs 200 --batch-size 256 --tau 0.90
-
-# Food-101@r=100
-CUDA_VISIBLE_DEVICES=0,1 python train_food_fix.py --ratio 2 --num_max 250 --imb_ratio_l 100 --imb_ratio_u 100 --out ./results/food/fixmatch/baseline/resnet50_N250_r100 --epochs 1000 --decay_epochs 9000 --batch-size 256 --tau 0.90
-CUDA_VISIBLE_DEVICES=0,1 python train_food_fix_cossl.py --ratio 2 --num_max 250 --imb_ratio_l 100 --imb_ratio_u 100 --resume ./results/food/fixmatch/baseline/resnet50_N250_r100/checkpoint_800.pth.tar --out ./results/food/fixmatch/cossl/resnet50_N250_r100 --epochs 200 --batch-size 256 --tau 0.90
+[EVAL@291/300]loss:6.3170 / all:26.86/head:28.62/tail:25.11/many:70.83/med:43.09/low:15.63 / best:27.23@284 / 10:27.05 / 20:26.97
+[EVAL@292/300]loss:6.3046 / all:26.98/head:28.63/tail:25.33/many:71.67/med:43.13/low:15.76 / best:27.23@284 / 10:27.04 / 20:26.97
+[EVAL@293/300]loss:6.3075 / all:27.00/head:28.69/tail:25.30/many:71.67/med:43.21/low:15.73 / best:27.23@284 / 10:27.04 / 20:26.99
+[EVAL@294/300]loss:6.2952 / all:27.17/head:28.90/tail:25.44/many:72.29/med:43.63/low:15.75 / best:27.23@284 / 10:27.03 / 20:27.00
+[EVAL@295/300]loss:6.3055 / all:27.11/head:28.78/tail:25.44/many:71.04/med:43.57/low:15.73 / best:27.23@284 / 10:27.03 / 20:27.02
+[EVAL@296/300]loss:6.2747 / all:27.01/head:28.74/tail:25.28/many:70.21/med:43.43/low:15.68 / best:27.23@284 / 10:27.04 / 20:27.03
+[EVAL@297/300]loss:6.2609 / all:27.28/head:29.07/tail:25.49/many:70.21/med:43.63/low:16.01 / best:27.28@297 / 10:27.02 / 20:27.03
+[EVAL@298/300]loss:6.2619 / all:27.29/head:29.07/tail:25.50/many:70.21/med:43.59/low:16.04 / best:27.29@298 / 10:27.04 / 20:27.05
+[EVAL@299/300]loss:6.2758 / all:27.12/head:29.02/tail:25.22/many:70.00/med:43.60/low:15.77 / best:27.29@298 / 10:27.06 / 20:27.07
+[EVAL@300/300]loss:6.2656 / all:27.27/head:29.25/tail:25.28/many:69.58/med:43.80/low:15.91 / best:27.29@298 / 10:27.07 / 20:27.07

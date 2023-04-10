@@ -66,6 +66,10 @@ def get_small_imagenet(root, img_size, labeled_percent=0.1, seed=0, return_stron
         num_data_per_cls[l] += 1
 
     num_labeled_data_per_cls = [int(np.around(n * labeled_percent)) for n in num_data_per_cls]
+    num_samples_per_class = {
+        'labeled': num_labeled_data_per_cls,
+        'unlabeled': num_data_per_cls
+    }
     print('total number of labeled data is ', sum(num_labeled_data_per_cls))
     train_labeled_idxs = train_split(base_dataset.targets, num_labeled_data_per_cls, num_classes, seed)
 
@@ -75,9 +79,9 @@ def get_small_imagenet(root, img_size, labeled_percent=0.1, seed=0, return_stron
 
     if return_strong_labeled_set:
         train_strong_labeled_dataset = SmallImageNet(root, img_size, True, transform=transform_strong, indexs=train_labeled_idxs)
-        return num_data_per_cls, train_labeled_dataset, train_unlabeled_dataset, test_dataset, train_strong_labeled_dataset
+        return num_samples_per_class, train_labeled_dataset, train_unlabeled_dataset, test_dataset, train_strong_labeled_dataset
     else:
-        return num_data_per_cls, train_labeled_dataset, train_unlabeled_dataset, test_dataset
+        return num_samples_per_class, train_labeled_dataset, train_unlabeled_dataset, test_dataset
 
 
 def train_split(labels, n_labeled_per_class, num_classes, seed):

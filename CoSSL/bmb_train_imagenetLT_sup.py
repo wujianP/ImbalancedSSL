@@ -268,7 +268,8 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_opti
         logits_u = all_outputs[batch_size:]
 
         Lx, Lu = criterion(logits_x, all_targets[:batch_size], logits_u, all_targets[batch_size:], select_mask)
-        loss = Lx + Lu
+        # loss = Lx + Lu
+        loss = Lx
 
         # record loss
         losses.update(loss.item(), inputs_x.size(0))
