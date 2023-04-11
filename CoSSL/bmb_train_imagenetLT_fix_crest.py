@@ -23,9 +23,6 @@ from __future__ import print_function
 
 import argparse
 import os
-import json
-# from sklearn.metrics import precision_score
-# from sklearn.metrics import recall_score
 import time
 import random
 import math
@@ -44,63 +41,47 @@ import torch.nn.functional as F
 import torchvision
 from PIL import Image
 
-import models.wrn as models
-from dataset.fix_cifar10 import transform_train as tfms_w_cifar10
-from dataset.fix_cifar10 import transform_strong as tfms_s_cifar10
-from dataset.fix_cifar100 import transform_train as tfms_w_cifar100
-from dataset.fix_cifar100 import transform_strong as tfms_s_cifar100
 
-from dataset.fix_cifar10 import transform_val as tfms_test_cifar10
-from dataset.fix_cifar100 import transform_val as tfms_test_cifar100
+import models.resnetwithABC as models
+from dataset.fix_imagenet import get_imagenet
 
 from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
 from scipy import optimize
 
-parser = argparse.ArgumentParser(description='PyTorch ReMixMatch Training')
+parser = argparse.ArgumentParser(description='PyTorch FixMatch Training')
 # Optimization options
-parser.add_argument('--epochs', default=64, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                    help='manual epoch number (useful on restarts)')
-parser.add_argument('--batch-size', default=64, type=int, metavar='N',
-                    help='train batchsize')
+parser.add_argument('--epochs', default=64, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
+parser.add_argument('--batch_size', default=64, type=int, metavar='N', help='train batchsize')
 parser.add_argument('--lr', '--learning-rate', default=0.002, type=float,  # 0.002, 0.03
                     metavar='LR', help='initial learning rate')
 # Checkpoints
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
-parser.add_argument('--out', default='result',
-                        help='Directory to output the result')
+parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
+parser.add_argument('--out', default='result', help='Directory to output the result')
 # Miscs
 parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
 #Device options
-parser.add_argument('--gpu', default='0', type=str,
-                    help='id(s) for CUDA_VISIBLE_DEVICES')
+parser.add_argument('--gpu', default='0', type=str, help='id(s) for CUDA_VISIBLE_DEVICES')
 
 # Method options
-parser.add_argument('--dataset', type=str, default='cifar10',
-                        help='cifar10 or cifar100')
-parser.add_argument('--num_max', type=int, default=1500,
-                        help='Number of samples in the maximal class')
-parser.add_argument('--ratio', type=float, default=2.0,
-                        help='Relative size between labeled and unlabeled data')
-parser.add_argument('--imb_ratio_l', type=int, default=100,
-                        help='Imbalance ratio for labeled data')
-parser.add_argument('--imb_ratio_u', type=int, default=100,
-                        help='Imbalance ratio for unlabeled data')
-parser.add_argument('--step', action='store_true', help='Type of class-imbalance')
-parser.add_argument('--val-iteration', type=int, default=1024,
-                        help='Frequency for the evaluation')
+# parser.add_argument('--val-iteration', type=int, default=1024, help='Frequency for the evaluation')
+parser.add_argument('--val-iteration', type=int, default=600, help='Frequency for the evaluation')
 
 # Hyperparameters for FixMatch
-parser.add_argument('--tau', default=0.95, type=float, help='hyper-parameter for pseudo-label of FixMatch')
+parser.add_argument('--tau', default=0.7, type=float, help='hyper-parameter for pseudo-label of FixMatch')
 parser.add_argument('--ema-decay', default=0.999, type=float)
+parser.add_argument('--save_freq', default=40, type=int)
 
 # Hyperparameters for CReST
 parser.add_argument('--num_generation', default=6, type=int)
 parser.add_argument('--dalign_t', default=0.5, type=float, help='t_min, 0.5 for FixMatch 0.8 for MixMatch')
 parser.add_argument('--crest_alpha', default=3, type=float, help='3 for FixMatch 2 for MixMatch')
 parser.add_argument('--no_scheduler', action='store_true', default=True, help='Type of class-imbalance')
+
+# added by wj
+parser.add_argument('--data_path', required=True, type=str)
+parser.add_argument('--annotation_file_path', required=True, type=str)
+parser.add_argument('--labeled_ratio', type=float, default=20, help='by default we take 20% labeled data')
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -121,12 +102,7 @@ if use_cuda:
     torch.backends.cudnn.deterministic = True
 
 best_acc = 0  # best test accuracy
-if args.dataset == 'cifar10':
-    num_class = 10
-elif args.dataset == 'cifar100':
-    num_class = 100
-else:
-    raise NotImplementedError
+num_class = 1000
 
 
 def annotate_unlabeled_data(loader, model, use_cuda, num_classes):
@@ -274,19 +250,26 @@ def main():
         mkdir_p(args.out)
 
     # Data
-    print(f'==> Preparing imbalanced {args.dataset}')
+    print(f'==> Preparing imbalanced ImageNetLT-{args.labeled_ratio}')
 
-    N_SAMPLES_PER_CLASS = make_imb_data(args.num_max, num_class, args.imb_ratio_l)
-    U_SAMPLES_PER_CLASS = make_imb_data(args.ratio * args.num_max, num_class, args.imb_ratio_u)
+    tmp = get_imagenet(
+        root=args.data_path,
+        annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
+        annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
+        annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
+        num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
+    num_per_class, _, _, _ = tmp
+
+    N_SAMPLES_PER_CLASS = num_per_class['labeled']
+    U_SAMPLES_PER_CLASS = num_per_class['unlabeled']
     N_SAMPLES_PER_CLASS_T = torch.Tensor(N_SAMPLES_PER_CLASS)
 
     # Use the inferred distribution with labeled data
     num_samples_per_class = N_SAMPLES_PER_CLASS_T / N_SAMPLES_PER_CLASS_T.sum() * sum(U_SAMPLES_PER_CLASS)
     # In case of FixMatch, labeled data is utilized as unlabeled data once again.
-    num_samples_per_class += N_SAMPLES_PER_CLASS_T  # (10,) how many unlabeled samples per class
+    # num_samples_per_class += N_SAMPLES_PER_CLASS_T  # (10,) how many unlabeled samples per class
     print(num_samples_per_class)
     target_disb = num_samples_per_class / num_samples_per_class.sum()
-
 
     # Main function
     pseudo_label_list = None
@@ -300,47 +283,34 @@ def main():
         cur = gen_idx / (args.num_generation - 1)
         current_dalign_t = (1.0 - cur) * 1.0 + cur * args.dalign_t
 
-        if args.dataset == 'cifar10':
-            base_dataset = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=True, download=True)
-            test_set = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar10)
-            weakDA = tfms_w_cifar10
-            strongDA = tfms_s_cifar10
-            valDA = tfms_test_cifar10
-        elif args.dataset == 'cifar100':
-            base_dataset = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=True, download=True)
-            test_set = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar100)
-            weakDA = tfms_w_cifar100
-            strongDA = tfms_s_cifar100
-            valDA = tfms_test_cifar100
-        else:
-            raise NotImplementedError
+        tmp = get_imagenet(
+            root=args.data_path,
+            annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
+            annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
+            annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
+            num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
+        _, train_labeled_set, train_unlabeled_set, test_set = tmp
 
-        train_labeled_idxs, train_unlabeled_idxs = train_split(base_dataset.targets, N_SAMPLES_PER_CLASS,
-                                                               U_SAMPLES_PER_CLASS, num_class, seed=args.manualSeed)
-
-        x_train = base_dataset.data[train_labeled_idxs]
-        y_train = np.array(base_dataset.targets)[train_labeled_idxs]
-        x_unlab_test = base_dataset.data[train_unlabeled_idxs]
-        y_unlab_test = np.array(base_dataset.targets)[train_unlabeled_idxs]
-        x_unlab = np.concatenate([x_train, x_unlab_test], axis=0)
-        y_unlab = np.concatenate([y_train, y_unlab_test], axis=0)
-        x_train, y_train = get_split(x_train, y_train, x_unlab_test, y_unlab_test, args.imb_ratio_l,
-                                     num_class, alpha=args.crest_alpha, pseudo_label_list=pseudo_label_list)
-
-        train_labeled_set = CIFAR_custom(x_train, y_train, transform=weakDA)
-        train_unlabeled_set = CIFAR_custom(x_unlab, y_unlab, transform=TransformTwice(weakDA, strongDA))
-        unlabeled_anno_set = CIFAR_custom(x_unlab_test, y_unlab_test, transform=valDA)  # note: valDA here
-
-        labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, drop_last=True)
-        unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.batch_size, shuffle=True, drop_last=True)
-        unlabeled_anno_loader = data.DataLoader(unlabeled_anno_set, batch_size=100, shuffle=False, drop_last=False)
+        labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True,
+                                              num_workers=4,
+                                              drop_last=True)
+        unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.mu * args.batch_size, shuffle=True,
+                                                num_workers=4, drop_last=True)
         test_loader = data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
+        _, _, unlabeled_anno_set, _ = get_imagenet(
+            root=args.data_path,
+            annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
+            annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
+            annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
+            num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
+        unlabeled_anno_loader = data.DataLoader(unlabeled_anno_set, batch_size=100, shuffle=False, drop_last=False)
+
         # Model
-        print("==> creating WRN-28-2")
+        print("==> creating ResNet50")
 
         def create_model(ema=False):
-            model = models.WRN(2, num_class)
+            model = models.ResNet(num_classes=num_class, encoder_name='resnet', pretrained=False)
             model = model.cuda()
 
             if ema:
@@ -367,7 +337,7 @@ def main():
         ema_optimizer = WeightEMA(model, ema_model, alpha=args.ema_decay)
         start_epoch = 0
 
-        title = 'fix-cifar-'
+        title = 'fix-imagenet127-crest-'
         if args.resume:
             # Load checkpoint.
             print('==> Resuming from checkpoint..')
@@ -402,8 +372,13 @@ def main():
             # Evaluation part
             test_loss, test_acc, test_cls, test_gm = validate(test_loader, ema_model, criterion, use_cuda, mode='Test Stats ')
 
+            is_best = False
+            if test_acc > best_acc:
+                best_acc = test_acc
+                is_best = True
+
             # Append logger file
-            logger.append([*train_info, test_loss, test_acc, test_gm])
+            logger.append([*train_info, test_loss, test_acc, 0.])
 
             # Save models
             save_checkpoint({
@@ -412,7 +387,7 @@ def main():
                 'ema_state_dict': ema_model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict() if scheduler is not None else None,
-            }, epoch + 1, filename=f'checkpoint_gen{gen_idx}.pth.tar')
+            }, epoch+1, args.out, args.save_freq, is_best=is_best)
             test_accs.append(test_acc)
             test_gms.append(test_gm)
 
@@ -588,7 +563,7 @@ def validate(valloader, model, criterion, use_cuda, mode):
     y_true = []
     y_pred = []
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(valloader):
+        for batch_idx, (inputs, targets, _) in enumerate(valloader):
             # measure data loading time
             data_time.update(time.time() - end)
             y_true.extend(targets.tolist())
@@ -648,7 +623,8 @@ def validate(valloader, model, criterion, use_cuda, mode):
         else:
             GM *= (classwise_acc[i]) ** (1/num_class)
 
-    return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM)
+    # return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM)
+    return (losses.avg, classwise_acc.mean(), section_acc.cpu().numpy(), GM)
 
 
 def make_imb_data(max_num, class_num, gamma):
@@ -666,12 +642,14 @@ def make_imb_data(max_num, class_num, gamma):
     return list(class_num_list)
 
 
-def save_checkpoint(state, epoch, checkpoint=args.out, filename='checkpoint.pth.tar'):
-    filepath = os.path.join(checkpoint, filename)
-    torch.save(state, filepath)
-
-    # if epoch % 100 == 0:
-    #     shutil.copyfile(filepath, os.path.join(checkpoint, 'model_' + str(epoch) + '.pth.tar'))
+def save_checkpoint(state, epoch, save_path, save_freq, is_best):
+    if epoch % save_freq == 0:
+        torch.save(state, os.path.join(save_path, f'checkpoint_{epoch}.pth'))
+    # save the best checkpoint
+    if is_best:
+        if os.path.isfile(os.path.join(save_path, 'best.pth')):
+            os.remove(os.path.join(save_path, 'best.pth'))
+        torch.save(state, os.path.join(save_path, 'best.pth'))
 
 
 def get_cosine_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, num_cycles=7. / 16., last_epoch=-1):
