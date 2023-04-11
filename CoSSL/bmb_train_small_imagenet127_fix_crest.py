@@ -609,7 +609,7 @@ def validate(valloader, model, criterion, use_cuda, mode):
     y_true = []
     y_pred = []
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(valloader):
+        for batch_idx, (inputs, targets, _) in enumerate(valloader):
             # measure data loading time
             data_time.update(time.time() - end)
             y_true.extend(targets.tolist())
