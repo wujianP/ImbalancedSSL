@@ -344,7 +344,7 @@ def main():
 
         labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size,
                                               shuffle=True, num_workers=4, drop_last=True)
-        unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.mu * args.batch_size,
+        unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.batch_size,
                                                 shuffle=True, num_workers=4, drop_last=True)
         test_loader = data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
