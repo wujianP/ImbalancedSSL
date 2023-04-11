@@ -433,7 +433,7 @@ def main():
                 'ema_state_dict': ema_model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict() if scheduler is not None else None,
-            }, epoch+1, args.out, args.save_freq, is_best=is_best)
+            }, epoch+1, args.out, args.save_freq, is_best=is_best, gen_idx=gen_idx)
             test_accs.append(test_acc)
             test_gms.append(test_gm)
 
@@ -688,9 +688,9 @@ def make_imb_data(max_num, class_num, gamma):
     return list(class_num_list)
 
 
-def save_checkpoint(state, epoch, save_path, save_freq, is_best):
+def save_checkpoint(state, epoch, save_path, save_freq, is_best, gen_idx=None):
     if epoch % save_freq == 0:
-        torch.save(state, os.path.join(save_path, f'checkpoint_{epoch}.pth'))
+        torch.save(state, os.path.join(save_path, f'checkpoint_gen{gen_idx}_ep{epoch}.pth'))
     # save the best checkpoint
     if is_best:
         if os.path.isfile(os.path.join(save_path, 'best.pth')):
