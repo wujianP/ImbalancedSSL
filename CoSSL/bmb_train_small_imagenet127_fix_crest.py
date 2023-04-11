@@ -98,6 +98,10 @@ parser.add_argument('--dalign_t', default=0.5, type=float, help='t_min, 0.5 for 
 parser.add_argument('--crest_alpha', default=3, type=float, help='3 for FixMatch 2 for MixMatch')
 parser.add_argument('--no_scheduler', action='store_true', default=True, help='Type of class-imbalance')
 
+parser.add_argument('--labeled_percent', type=float, default=0.1, help='by default we take 10% labeled data')
+parser.add_argument('--img_size', type=int, default=32, help='ImageNet127_32 or ImageNet127_64')
+parser.add_argument('--save_freq', default=100, type=int)
+
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
 
