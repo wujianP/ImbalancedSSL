@@ -424,7 +424,7 @@ def main():
                 is_best = True
 
             # Append logger file
-            logger.append([*train_info, test_loss, test_acc, None])
+            logger.append([*train_info, test_loss, test_acc, 0.])
 
             # Save models
             save_checkpoint({
