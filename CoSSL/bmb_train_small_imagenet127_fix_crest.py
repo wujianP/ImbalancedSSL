@@ -295,23 +295,23 @@ def main():
         cur = gen_idx / (args.num_generation - 1)
         current_dalign_t = (1.0 - cur) * 1.0 + cur * args.dalign_t
 
-        if args.dataset == 'cifar10':
-            base_dataset = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=True, download=True)
-            test_set = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar10)
-            weakDA = tfms_w_cifar10
-            strongDA = tfms_s_cifar10
-            valDA = tfms_test_cifar10
-        elif args.dataset == 'cifar100':
-            base_dataset = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=True, download=True)
-            test_set = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar100)
-            weakDA = tfms_w_cifar100
-            strongDA = tfms_s_cifar100
-            valDA = tfms_test_cifar100
-        else:
-            raise NotImplementedError
+        # if args.dataset == 'cifar10':
+        #     base_dataset = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=True, download=True)
+        #     test_set = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar10)
+        #     weakDA = tfms_w_cifar10
+        #     strongDA = tfms_s_cifar10
+        #     valDA = tfms_test_cifar10
+        # elif args.dataset == 'cifar100':
+        #     base_dataset = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=True, download=True)
+        #     test_set = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar100)
+        #     weakDA = tfms_w_cifar100
+        #     strongDA = tfms_s_cifar100
+        #     valDA = tfms_test_cifar100
+        # else:
+        #     raise NotImplementedError
 
-        train_labeled_idxs, train_unlabeled_idxs = train_split(base_dataset.targets, N_SAMPLES_PER_CLASS,
-                                                               U_SAMPLES_PER_CLASS, num_class, seed=args.manualSeed)
+        # train_labeled_idxs, train_unlabeled_idxs = train_split(base_dataset.targets, N_SAMPLES_PER_CLASS,
+        #                                                        U_SAMPLES_PER_CLASS, num_class, seed=args.manualSeed)
 
         # x_train = base_dataset.data[train_labeled_idxs]
         # y_train = np.array(base_dataset.targets)[train_labeled_idxs]
