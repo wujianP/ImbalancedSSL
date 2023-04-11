@@ -440,8 +440,8 @@ def main():
         logger.close()
 
         # Print the final results
-        print('Mean bAcc:')
-        print(np.mean(test_accs[-20:]))
+        # print('Mean bAcc:')
+        # print(np.mean(test_accs[-20:]))
 
         # print('Mean GM:')
         # print(np.mean(test_gms[-20:]))
