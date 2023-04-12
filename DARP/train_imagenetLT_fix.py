@@ -185,6 +185,7 @@ def main():
             is_best = True
 
         # Append logger file
+        print(f'Epoch:{epoch}-Acc{test_acc}')
         logger.append([train_loss, train_loss_x, train_loss_u, test_loss, test_acc, 0.])
 
         # Save models
