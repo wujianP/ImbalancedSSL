@@ -54,7 +54,8 @@ def validate(valloader, model, criterion, use_cuda, mode, num_class=10):
             loss = criterion(outputs, targets)
 
             # measure accuracy and record loss
-            prec1, prec5 = accuracy(outputs, targets, topk=(1, 5))
+            # prec1, prec5 = accuracy(outputs, targets, topk=(1, 5))
+            prec1, prec5 = torch.tensor(0.), torch.tensor(0.)
             losses.update(loss.item(), inputs.size(0))
             top1.update(prec1.item(), inputs.size(0))
             top5.update(prec5.item(), inputs.size(0))
@@ -102,7 +103,7 @@ def validate(valloader, model, criterion, use_cuda, mode, num_class=10):
         else:
             GM *= (classwise_acc[i]) ** (1/num_class)
 
-    return (losses.avg, top1.avg, section_acc.numpy(), classwise_acc)
+    return (losses.avg, classwise_acc.mean(), section_acc.numpy(), classwise_acc)
 
 def estimate_pseudo(q_y, saved_q, num_class=10, alpha=2):
     pseudo_labels = torch.zeros(len(saved_q), num_class)
