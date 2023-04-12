@@ -179,25 +179,10 @@ def linear_rampup(current, rampup_length=0):
 
 class SemiLoss(object):
     def __call__(self, args, outputs_x, targets_x, outputs_u, targets_u, epoch, mask=None):
-        if args.semi_method == 'mix':
-            probs_u = torch.softmax(outputs_u, dim=1)
+        Lx = -torch.mean(torch.sum(F.log_softmax(outputs_x, dim=1) * targets_x, dim=1))
+        Lu = -torch.mean(torch.sum(F.log_softmax(outputs_u, dim=1) * targets_u, dim=1) * mask)
 
-            Lx = -torch.mean(torch.sum(F.log_softmax(outputs_x, dim=1) * targets_x, dim=1))
-            Lu = torch.mean((probs_u - targets_u)**2)
-
-            return Lx, Lu, args.lambda_u * linear_rampup(epoch, args.epochs)
-        elif args.semi_method == 'remix':
-            Lx = -torch.mean(torch.sum(F.log_softmax(outputs_x, dim=1) * targets_x, dim=1))
-            Lu = -torch.mean(torch.sum(F.log_softmax(outputs_u, dim=1) * targets_u, dim=1))
-
-            return Lx, Lu, args.lambda_u * linear_rampup(epoch, args.epochs)
-        elif args.semi_method == 'fix':
-            Lx = -torch.mean(torch.sum(F.log_softmax(outputs_x, dim=1) * targets_x, dim=1))
-            Lu = -torch.mean(torch.sum(F.log_softmax(outputs_u, dim=1) * targets_u, dim=1) * mask)
-
-            return Lx, Lu
-        else:
-            raise Exception('Wrong type of semi-supervised method (Please select among |mix|remix|fix|)')
+        return Lx, Lu
 
 class WeightEMA(object):
     def __init__(self, model, ema_model, lr=0.002, alpha=0.999):
