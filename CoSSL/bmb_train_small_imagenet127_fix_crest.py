@@ -142,8 +142,6 @@ def annotate_unlabeled_data(loader, model, use_cuda, num_classes):
         for batch_idx, (inputs, targets, _) in enumerate(loader):
             # measure data loading time
             data_time.update(time.time() - end)
-            from IPython import embed
-            embed()
             if use_cuda:
                 inputs, targets = inputs.cuda(), targets.cuda(non_blocking=True)
             # compute output
@@ -351,6 +349,7 @@ def main():
 
         _, _, unlabeled_anno_set, _ = get_small_imagenet(img_size2path[args.img_size], args.img_size, labeled_percent=args.labeled_percent,
                                                          seed=args.manualSeed, return_strong_labeled_set=False)
+        unlabeled_anno_set.transform = test_set.transform
         unlabeled_anno_loader = data.DataLoader(unlabeled_anno_set, batch_size=100, shuffle=False, drop_last=False)
 
         # Model
