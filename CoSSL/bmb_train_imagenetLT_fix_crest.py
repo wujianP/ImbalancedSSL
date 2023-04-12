@@ -304,6 +304,7 @@ def main():
             annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
             annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
             num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
+        unlabeled_anno_set.transform = test_set.transform
         unlabeled_anno_loader = data.DataLoader(unlabeled_anno_set, batch_size=100, shuffle=False, drop_last=False)
 
         # Model
