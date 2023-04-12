@@ -12,10 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.optim as optim
-import torch.utils.data as data
-import torchvision.transforms as transforms
+
 import torch.nn.functional as F
 
 from scipy import optimize
@@ -23,20 +20,12 @@ from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
 from common import validate, estimate_pseudo, opt_solver, make_imb_data, save_checkpoint, SemiLoss, \
     WeightEMA, interleave, linear_rampup
 
+
 def trains(args, labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch, use_cuda,
           target_disb, emp_distb_u, pseudo_orig, pseudo_refine):
+    return train_fix(args, labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch,
+              use_cuda, target_disb, emp_distb_u, pseudo_orig, pseudo_refine)
 
-    if args.semi_method == 'mix':
-        return train_mix(args, labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch,
-                  use_cuda, target_disb, emp_distb_u, pseudo_orig, pseudo_refine)
-    elif args.semi_method == 'remix':
-        return train_remix(args, labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch,
-                    use_cuda, target_disb, emp_distb_u, pseudo_orig, pseudo_refine)
-    elif args.semi_method == 'fix':
-        return train_fix(args, labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch,
-                  use_cuda, target_disb, emp_distb_u, pseudo_orig, pseudo_refine)
-    else:
-        raise Exception('Wrong type of semi-supervised method (Please select among |mix|remix|fix|)')
 
 def train_mix(args, labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch,
               use_cuda, target_disb, emp_distb_u, pseudo_orig, pseudo_refine):
@@ -402,7 +391,7 @@ def train_fix(args, labeled_trainloader, unlabeled_trainloader, model, optimizer
         targets_x = torch.zeros(batch_size, args.num_class).scatter_(1, targets_x.view(-1,1), 1)
         if use_cuda:
             inputs_x, targets_x = inputs_x.cuda(), targets_x.cuda(non_blocking=True)
-            inputs_u, inputs_u2, inputs_u3  = inputs_u.cuda(), inputs_u2.cuda(), inputs_u3.cuda()
+            inputs_u, inputs_u2, inputs_u3 = inputs_u.cuda(), inputs_u2.cuda(), inputs_u3.cuda()
 
         # Generate the pseudo labels
         with torch.no_grad():

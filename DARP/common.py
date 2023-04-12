@@ -102,7 +102,7 @@ def validate(valloader, model, criterion, use_cuda, mode, num_class=10):
         else:
             GM *= (classwise_acc[i]) ** (1/num_class)
 
-    return (losses.avg, top1.avg, section_acc.numpy(), GM)
+    return (losses.avg, top1.avg, section_acc.numpy(), classwise_acc)
 
 def estimate_pseudo(q_y, saved_q, num_class=10, alpha=2):
     pseudo_labels = torch.zeros(len(saved_q), num_class)
@@ -161,12 +161,14 @@ def make_imb_data(max_num, class_num, gamma):
     print(class_num_list)
     return list(class_num_list)
 
-def save_checkpoint(state, epoch, checkpoint='none', filename='checkpoint.pth.tar'):
-    filepath = os.path.join(checkpoint, filename)
-    torch.save(state, filepath)
-
-    if epoch % 100 == 0:
-        shutil.copyfile(filepath, os.path.join(checkpoint, 'model_' + str(epoch) + '.pth.tar'))
+def save_checkpoint(state, epoch, save_path, save_freq, is_best):
+    if epoch % save_freq == 0:
+        torch.save(state, os.path.join(save_path, f'checkpoint_{epoch}.pth'))
+    # save the best checkpoint
+    if is_best:
+        if os.path.isfile(os.path.join(save_path, 'best.pth')):
+            os.remove(os.path.join(save_path, 'best.pth'))
+        torch.save(state, os.path.join(save_path, 'best.pth'))
 
 def linear_rampup(current, rampup_length=0):
     if rampup_length == 0:

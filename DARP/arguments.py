@@ -4,11 +4,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch DARP Training')
 
     # Optimization options
-    parser.add_argument('--semi_method', default='mix', help='Semi: mix | remix | fix')
+    parser.add_argument('--semi_method', default='fix', help='Semi: mix | remix | fix')
     parser.add_argument('--dataset', default='cifar10', help='Dataset: cifar10 | cifar100 | stl10')
     parser.add_argument('--epochs', default=500, type=int, metavar='N', help='number of total epochs to run')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
-    parser.add_argument('--batch-size', default=64, type=int, metavar='N', help='train batchsize')
+    parser.add_argument('--batch_size', default=64, type=int, metavar='N', help='train batchsize')
     parser.add_argument('--lr', '--learning-rate', default=0.002, type=float, metavar='LR', help='initial learning rate')
     # Checkpoints
     parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
