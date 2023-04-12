@@ -200,6 +200,8 @@ class WeightEMA(object):
         one_minus_alpha = 1.0 - self.alpha
         for param, ema_param in zip(self.params, self.ema_params):
             # print(ema_param.mean())
+            ema_param = ema_param.float()
+            param = param.float()
             ema_param.mul_(self.alpha)
             ema_param.add_(param * one_minus_alpha)
             # customized weight decay
