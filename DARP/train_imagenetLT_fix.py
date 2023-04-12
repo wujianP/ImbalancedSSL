@@ -179,7 +179,7 @@ def main():
                                                           mode='Test Stats', num_class=args.num_class)
 
         is_best = False
-        test_acc = class_wise_acc.mean
+        test_acc = class_wise_acc.mean()
         if test_acc >= best_acc:
             best_acc = test_acc
             is_best = True
