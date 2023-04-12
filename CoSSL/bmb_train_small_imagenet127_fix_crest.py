@@ -142,7 +142,8 @@ def annotate_unlabeled_data(loader, model, use_cuda, num_classes):
         for batch_idx, (inputs, targets, _) in enumerate(loader):
             # measure data loading time
             data_time.update(time.time() - end)
-
+            from IPython import embed
+            embed()
             if use_cuda:
                 inputs, targets = inputs.cuda(), targets.cuda(non_blocking=True)
             # compute output
