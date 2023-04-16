@@ -168,6 +168,11 @@ def main():
         test_loss, test_acc, test_cls, test_gm = validate(test_loader, ema_model, criterion, use_cuda,
                                                           mode='Test Stats', num_class=args.num_class)
 
+        is_best = False
+        if test_acc >= best_acc:
+            best_acc = test_acc
+            is_best = True
+
         # Append logger file
         logger.append([0., 0., 0., 0., test_acc, 0.])
 
@@ -177,7 +182,7 @@ def main():
             'state_dict': model.state_dict(),
             'ema_state_dict': ema_model.state_dict(),
             'optimizer': optimizer.state_dict(),
-        }, epoch + 1, args.out)
+        }, epoch + 1, args.out, save_freq=20, is_best=is_best)
         test_accs.append(test_acc)
         test_gms.append(test_gm)
 
