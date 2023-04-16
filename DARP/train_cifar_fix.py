@@ -169,7 +169,7 @@ def main():
                                                           mode='Test Stats', num_class=args.num_class)
 
         # Append logger file
-        logger.append([train_loss, train_loss_x, train_loss_u, test_loss, test_acc, test_gm])
+        logger.append([0., 0., 0., 0., test_acc, 0.])
 
         # Save models
         save_checkpoint({
