@@ -173,6 +173,8 @@ def main():
             best_acc = test_acc
             is_best = True
 
+        print(f'Epoch:{epoch}-Acc:{test_acc}')
+
         # Append logger file
         logger.append([0., 0., 0., 0., test_acc, 0.])
 
