@@ -54,14 +54,14 @@ if args.semi_method == 'remix':
 def main():
     global best_acc
 
-    args.out = args.dataset + '@N_' + str(args.num_max) + '_r_'
-    if args.imb_ratio_l == args.imb_ratio_u:
-        args.out += str(args.imb_ratio_l) + '_' + args.semi_method
-    else:
-        args.out += str(args.imb_ratio_l) + '_' + str(args.imb_ratio_u) + '_' + args.semi_method
-
-    if args.darp:
-        args.out += '_darp_alpha' + str(args.alpha) + '_iterT' + str(args.iter_T)
+    # args.out = args.dataset + '@N_' + str(args.num_max) + '_r_'
+    # if args.imb_ratio_l == args.imb_ratio_u:
+    #     args.out += str(args.imb_ratio_l) + '_' + args.semi_method
+    # else:
+    #     args.out += str(args.imb_ratio_l) + '_' + str(args.imb_ratio_u) + '_' + args.semi_method
+    #
+    # if args.darp:
+    #     args.out += '_darp_alpha' + str(args.alpha) + '_iterT' + str(args.iter_T)
 
     if not os.path.isdir(args.out):
         mkdir_p(args.out)
