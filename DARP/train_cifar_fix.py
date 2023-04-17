@@ -48,20 +48,9 @@ if args.dataset == 'cifar100':
 else:
     args.num_class = 10
 
-if args.semi_method == 'remix':
-    args.lambda_u = 1.5
 
 def main():
     global best_acc
-
-    # args.out = args.dataset + '@N_' + str(args.num_max) + '_r_'
-    # if args.imb_ratio_l == args.imb_ratio_u:
-    #     args.out += str(args.imb_ratio_l) + '_' + args.semi_method
-    # else:
-    #     args.out += str(args.imb_ratio_l) + '_' + str(args.imb_ratio_u) + '_' + args.semi_method
-    #
-    # if args.darp:
-    #     args.out += '_darp_alpha' + str(args.alpha) + '_iterT' + str(args.iter_T)
 
     if not os.path.isdir(args.out):
         mkdir_p(args.out)
@@ -75,15 +64,16 @@ def main():
 
     if args.dataset == 'cifar10':
         print(f'==> Preparing imbalanced CIFAR-10')
-        train_labeled_set, train_unlabeled_set, test_set = get_cifar10('/home/jaehyung/data', N_SAMPLES_PER_CLASS,
-                                                                               U_SAMPLES_PER_CLASS, args.out)
-    elif args.dataset == 'stl10':
-        print(f'==> Preparing imbalanced STL-10')
-        train_labeled_set, train_unlabeled_set, test_set = get_stl10('/home/jaehyung/data', N_SAMPLES_PER_CLASS, args.out)
+        train_labeled_set, train_unlabeled_set, test_set = get_cifar10(args.data_path,
+                                                                       N_SAMPLES_PER_CLASS,
+                                                                       U_SAMPLES_PER_CLASS,
+                                                                       seed=args.manualSeed)
     elif args.dataset == 'cifar100':
         print(f'==> Preparing imbalanced CIFAR-100')
-        train_labeled_set, train_unlabeled_set, test_set = get_cifar100('/home/jaehyung/data', N_SAMPLES_PER_CLASS,
-                                                                                U_SAMPLES_PER_CLASS, args.out)
+        train_labeled_set, train_unlabeled_set, test_set = get_cifar100(args.data_path,
+                                                                        N_SAMPLES_PER_CLASS,
+                                                                        U_SAMPLES_PER_CLASS,
+                                                                        seed=args.manualSeed)
     labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=4,
                                           drop_last=True)
     unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.batch_size, shuffle=True, num_workers=4,

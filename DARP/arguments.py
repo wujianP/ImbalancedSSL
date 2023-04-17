@@ -48,4 +48,7 @@ def parse_args():
     parser.add_argument('--iter_T', type=int, default=10, help='Number of iteration (T) for DARP')
     parser.add_argument('--num_iter', type=int, default=10, help='Scheduling for updating pseudo-labels')
 
+    parser.add_argument('--data_path', type=str, required=True)
+    parser.add_argument('--save_freq', type=int, default=50)
+
     return parser.parse_args()
