@@ -56,41 +56,29 @@ from dataset.fix_cifar100 import transform_val as tfms_test_cifar100
 from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
 from scipy import optimize
 
-parser = argparse.ArgumentParser(description='PyTorch ReMixMatch Training')
+parser = argparse.ArgumentParser(description='PyTorch FixMatch Training')
 # Optimization options
-parser.add_argument('--epochs', default=64, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                    help='manual epoch number (useful on restarts)')
-parser.add_argument('--batch-size', default=64, type=int, metavar='N',
-                    help='train batchsize')
+parser.add_argument('--epochs', default=64, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
+parser.add_argument('--batch_size', default=64, type=int, metavar='N', help='train batchsize')
 parser.add_argument('--lr', '--learning-rate', default=0.002, type=float,  # 0.002, 0.03
                     metavar='LR', help='initial learning rate')
 # Checkpoints
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
-parser.add_argument('--out', default='result',
-                        help='Directory to output the result')
+parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
+parser.add_argument('--out', default='result', help='Directory to output the result')
 # Miscs
 parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
 #Device options
-parser.add_argument('--gpu', default='0', type=str,
-                    help='id(s) for CUDA_VISIBLE_DEVICES')
+parser.add_argument('--gpu', default='0', type=str, help='id(s) for CUDA_VISIBLE_DEVICES')
 
 # Method options
-parser.add_argument('--dataset', type=str, default='cifar10',
-                        help='cifar10 or cifar100')
-parser.add_argument('--num_max', type=int, default=1500,
-                        help='Number of samples in the maximal class')
-parser.add_argument('--ratio', type=float, default=2.0,
-                        help='Relative size between labeled and unlabeled data')
-parser.add_argument('--imb_ratio_l', type=int, default=100,
-                        help='Imbalance ratio for labeled data')
-parser.add_argument('--imb_ratio_u', type=int, default=100,
-                        help='Imbalance ratio for unlabeled data')
+parser.add_argument('--dataset', type=str, default='cifar10', help='cifar10 or cifar100')
+parser.add_argument('--num_max', type=int, default=1500, help='Number of samples in the maximal class')
+parser.add_argument('--ratio', type=float, default=2.0, help='Relative size between labeled and unlabeled data')
+parser.add_argument('--imb_ratio_l', type=int, default=100, help='Imbalance ratio for labeled data')
+parser.add_argument('--imb_ratio_u', type=int, default=100, help='Imbalance ratio for unlabeled data')
 parser.add_argument('--step', action='store_true', help='Type of class-imbalance')
-parser.add_argument('--val-iteration', type=int, default=1024,
-                        help='Frequency for the evaluation')
+parser.add_argument('--val-iteration', type=int, default=1024, help='Frequency for the evaluation')
 
 # Hyperparameters for FixMatch
 parser.add_argument('--tau', default=0.95, type=float, help='hyper-parameter for pseudo-label of FixMatch')
@@ -101,6 +89,9 @@ parser.add_argument('--num_generation', default=6, type=int)
 parser.add_argument('--dalign_t', default=0.5, type=float, help='t_min, 0.5 for FixMatch 0.8 for MixMatch')
 parser.add_argument('--crest_alpha', default=3, type=float, help='3 for FixMatch 2 for MixMatch')
 parser.add_argument('--no_scheduler', action='store_true', default=True, help='Type of class-imbalance')
+
+parser.add_argument('--data_path', type=str, required=True)
+parser.add_argument('--save_freq', type=int, default=50)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -219,7 +210,8 @@ def train_split(labels, n_labeled_per_class, n_unlabeled_per_class, num_classes,
             np.random.shuffle(idxs)
         train_labeled_idxs.extend(idxs[:n_labeled_per_class[i]])
         # note here train_labeled_idxs and train_unlabeled_idxs are disjoint
-        train_unlabeled_idxs.extend(idxs[n_labeled_per_class[i]:n_labeled_per_class[i] + n_unlabeled_per_class[i]])
+        # train_unlabeled_idxs.extend(idxs[n_labeled_per_class[i]:n_labeled_per_class[i] + n_unlabeled_per_class[i]])
+        train_unlabeled_idxs.extend(idxs[:n_labeled_per_class[i] + n_unlabeled_per_class[i]])
 
     return train_labeled_idxs, train_unlabeled_idxs
 
@@ -301,14 +293,14 @@ def main():
         current_dalign_t = (1.0 - cur) * 1.0 + cur * args.dalign_t
 
         if args.dataset == 'cifar10':
-            base_dataset = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=True, download=True)
-            test_set = torchvision.datasets.CIFAR10('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar10)
+            base_dataset = torchvision.datasets.CIFAR10(args.data_path, train=True, download=True)
+            test_set = torchvision.datasets.CIFAR10(args.data_path, train=False, download=False, transform=tfms_test_cifar10)
             weakDA = tfms_w_cifar10
             strongDA = tfms_s_cifar10
             valDA = tfms_test_cifar10
         elif args.dataset == 'cifar100':
-            base_dataset = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=True, download=True)
-            test_set = torchvision.datasets.CIFAR100('/share/home/wjpeng/dataset', train=False, download=False, transform=tfms_test_cifar100)
+            base_dataset = torchvision.datasets.CIFAR100(args.data_path, train=True, download=True)
+            test_set = torchvision.datasets.CIFAR100(args.data_path, train=False, download=False, transform=tfms_test_cifar100)
             weakDA = tfms_w_cifar100
             strongDA = tfms_s_cifar100
             valDA = tfms_test_cifar100
@@ -387,7 +379,7 @@ def main():
                               'Test Loss', 'Test Acc.', 'Test GM.'])
 
         test_accs = []
-        test_gms = []
+        # test_gms = []
 
         # Default values for ReMixMatch and DARP
         emp_distb_u = torch.ones(num_class) / num_class
@@ -403,7 +395,7 @@ def main():
             test_loss, test_acc, test_cls, test_gm = validate(test_loader, ema_model, criterion, use_cuda, mode='Test Stats ')
 
             # Append logger file
-            logger.append([*train_info, test_loss, test_acc, test_gm])
+            logger.append([*train_info, test_loss, test_acc, 0.])
 
             # Save models
             save_checkpoint({
@@ -412,10 +404,10 @@ def main():
                 'ema_state_dict': ema_model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict() if scheduler is not None else None,
-            }, epoch + 1, filename=f'checkpoint_gen{gen_idx}.pth.tar')
+            }, epoch+1, filename=f'checkpoint_gen{gen_idx}.pth.tar')
             test_accs.append(test_acc)
-            test_gms.append(test_gm)
-
+            # test_gms.append(test_gm)
+            print(f'Gen:{gen_idx+1}---Epoch:{epoch+1}---Acc:{test_acc}')
         logger.close()
 
         # Print the final results
