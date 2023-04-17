@@ -44,7 +44,9 @@ class TransformTwice:
         out3 = self.transform2(inp)
         return out1, out2, out3
 
-def get_cifar10(root, l_samples, u_samples, transform_train=transform_train, transform_strong=transform_strong,
+
+def get_cifar10(root, l_samples, u_samples,
+                transform_train=transform_train, transform_strong=transform_strong,
                 transform_val=transform_val, download=True, seed=0, return_strong_labeled_set=False):
     base_dataset = torchvision.datasets.CIFAR10(root, train=True, download=download)
     train_labeled_idxs, train_unlabeled_idxs = train_split(base_dataset.targets, l_samples, u_samples, 10, seed)
@@ -54,12 +56,13 @@ def get_cifar10(root, l_samples, u_samples, transform_train=transform_train, tra
                                                 transform=TransformTwice(transform_train, transform_strong))
     test_dataset = CIFAR10_labeled(root, train=False, transform=transform_val, download=True)
 
-    print (f"#Labeled: {len(train_labeled_idxs)} #Unlabeled: {len(train_unlabeled_idxs)}")
+    print(f"#Labeled: {len(train_labeled_idxs)} #Unlabeled: {len(train_unlabeled_idxs)}")
     if return_strong_labeled_set:
         train_strong_labeled_dataset = CIFAR10_labeled(root, train_labeled_idxs, train=True, transform=transform_strong)
         return train_labeled_dataset, train_unlabeled_dataset, test_dataset, train_strong_labeled_dataset
     else:
         return train_labeled_dataset, train_unlabeled_dataset, test_dataset
+
 
 def train_split(labels, n_labeled_per_class, n_unlabeled_per_class, num_classes, seed):
     np.random.seed(seed)
@@ -75,6 +78,7 @@ def train_split(labels, n_labeled_per_class, n_unlabeled_per_class, num_classes,
         train_unlabeled_idxs.extend(idxs[:n_labeled_per_class[i] + n_unlabeled_per_class[i]])
 
     return train_labeled_idxs, train_unlabeled_idxs
+
 
 class CIFAR10_labeled(torchvision.datasets.CIFAR10):
 
