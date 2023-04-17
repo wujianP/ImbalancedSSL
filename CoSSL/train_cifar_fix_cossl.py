@@ -27,9 +27,8 @@ from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, \
 
 parser = argparse.ArgumentParser(description='PyTorch FixMatch-CoSSL Training')
 # Optimization options
-parser.add_argument('--epochs', default=400, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--batch-size', default=64, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('--batch_size', default=64, type=int, metavar='N',
                     help='train batchsize')
 parser.add_argument('--lr', '--learning-rate', default=0.002, type=float,
                     metavar='LR', help='initial learning rate')
@@ -37,34 +36,27 @@ parser.add_argument('--lr_tfe', default=0.002, type=float)
 parser.add_argument('--wd_tfe', default=5e-4, type=float)
 parser.add_argument('--warm_tfe', default=10, type=int)
 # Checkpoints
-parser.add_argument('--resume', type=str, metavar='PATH',
-                    help='path to latest checkpoint')
-parser.add_argument('--out', default='result',
-                    help='Directory to output the result')
+parser.add_argument('--resume', type=str, metavar='PATH', help='path to latest checkpoint')
+parser.add_argument('--out', default='result', help='Directory to output the result')
 
 # Method options
-parser.add_argument('--dataset', type=str, default='cifar10',
-                    help='cifar10 or cifar100')
-parser.add_argument('--num_max', type=int, default=1500,
-                    help='Number of samples in the maximal class')
-parser.add_argument('--ratio', type=float, default=2.0,
-                    help='Relative size between labeled and unlabeled data')
-parser.add_argument('--imb_ratio_l', type=int, default=100,
-                    help='Imbalance ratio for labeled data')
-parser.add_argument('--imb_ratio_u', type=int, default=100,
-                    help='Imbalance ratio for unlabeled data')
-parser.add_argument('--val-iteration', type=int, default=500,
-                    help='Frequency for the evaluation')
+parser.add_argument('--dataset', type=str, default='cifar10', help='cifar10 or cifar100')
+parser.add_argument('--num_max', type=int, default=1500, help='Number of samples in the maximal class')
+parser.add_argument('--ratio', type=float, default=2.0, help='Relative size between labeled and unlabeled data')
+parser.add_argument('--imb_ratio_l', type=int, default=100, help='Imbalance ratio for labeled data')
+parser.add_argument('--imb_ratio_u', type=int, default=100, help='Imbalance ratio for unlabeled data')
+parser.add_argument('--val-iteration', type=int, default=500, help='Frequency for the evaluation')
 # Hyperparameters for FixMatch
-parser.add_argument('--tau', default=0.95, type=float,
-                    help='hyper-parameter for pseudo-label of FixMatch')
+parser.add_argument('--tau', default=0.95, type=float, help='hyper-parameter for pseudo-label of FixMatch')
 parser.add_argument('--ema-decay', default=0.999, type=float)
 parser.add_argument('--max_lam', default=0.8, type=float)
 # Miscs
 parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
 # Device options
-parser.add_argument('--gpu', default='0', type=str,
-                    help='id(s) for CUDA_VISIBLE_DEVICES')
+parser.add_argument('--gpu', default='0', type=str, help='id(s) for CUDA_VISIBLE_DEVICES')
+
+parser.add_argument('--data_path', type=str, required=True)
+parser.add_argument('--save_freq', type=int, default=50)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -107,13 +99,13 @@ def main():
 
     if args.dataset == 'cifar10':
         train_labeled_set, train_unlabeled_set, test_set, train_strong = dataset_cifar10.get_cifar10(
-            '/share/home/wjpeng/dataset',
+            args.data_path,
             N_SAMPLES_PER_CLASS,
             U_SAMPLES_PER_CLASS,
             return_strong_labeled_set=True, seed=args.manualSeed)
     elif args.dataset == 'cifar100':
         train_labeled_set, train_unlabeled_set, test_set, train_strong = dataset_cifar100.get_cifar100(
-            '/share/home/wjpeng/dataset',
+            args.data_path,
             N_SAMPLES_PER_CLASS,
             U_SAMPLES_PER_CLASS,
             return_strong_labeled_set=True, seed=args.manualSeed)
@@ -124,13 +116,10 @@ def main():
     crt_full_set = merge_two_datasets(crt_labeled_set.data, train_unlabeled_set.data, crt_labeled_set.targets,
                                       train_unlabeled_set.targets, transform=crt_labeled_set.transform)
 
-    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True,
-                                          num_workers=0, drop_last=True)
-    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.batch_size, shuffle=True,
-                                            num_workers=0, drop_last=True)
-    crt_full_loader = data.DataLoader(crt_full_set, batch_size=args.batch_size, shuffle=True,
-                                      num_workers=0, drop_last=True)
-    test_loader = data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=4)
+    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
+    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
+    crt_full_loader = data.DataLoader(crt_full_set, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
+    test_loader = data.DataLoader(test_set, batch_size=128, shuffle=False, num_workers=4)
 
     # Model
     print("==> creating WRN-28-2")
@@ -213,6 +202,11 @@ def main():
         # Evaluation part
         test_loss, test_acc, *_ = validate_teacher(test_loader, ema_model, ema_teacher, criterion, use_cuda, 'Test')
 
+        is_best = False
+        if test_acc >= best_acc:
+            best_acc = test_acc
+            is_best = True
+
         # Append logger file
         logger.append([*train_info, test_loss, test_acc])
 
@@ -224,8 +218,9 @@ def main():
             'optimizer': optimizer.state_dict(),
             'teacher_head': teacher_head.state_dict(),
             'ema_teacher': ema_teacher.state_dict(),
-        }, epoch + 1, args.out)
+        }, epoch+1, args.out, args.save_freq, is_best=is_best)
         test_accs.append(test_acc)
+        print(f'Epoch:{epoch+1}---Acc:{test_acc}')
 
     logger.close()
 
