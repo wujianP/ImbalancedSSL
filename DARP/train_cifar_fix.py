@@ -122,7 +122,7 @@ def main():
         logger.set_names(['Train Loss', 'Train Loss X', 'Train Loss U', 'Test Loss', 'Test Acc.', 'Test GM.'])
 
     test_accs = []
-    test_gms = []
+    # test_gms = []
 
     # Default values for MixMatch and DARP
     emp_distb_u = torch.ones(args.num_class) / args.num_class
@@ -175,8 +175,8 @@ def main():
             'ema_state_dict': ema_model.state_dict(),
             'optimizer': optimizer.state_dict(),
         }, epoch + 1, args.out, save_freq=20, is_best=is_best)
-        test_accs.append(test_acc)
-        test_gms.append(test_gm)
+        test_accs.append(test_acc.cpu())
+        # test_gms.append(test_gm)
 
     logger.close()
 
@@ -184,11 +184,12 @@ def main():
     print('Mean bAcc:')
     print(np.mean(test_accs[-20:]))
 
-    print('Mean GM:')
-    print(np.mean(test_gms[-20:]))
+    # print('Mean GM:')
+    # print(np.mean(test_gms[-20:]))
 
     print('Name of saved folder:')
     print(args.out)
+
 
 if __name__ == '__main__':
     main()
