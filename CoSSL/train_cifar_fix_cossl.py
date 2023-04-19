@@ -44,7 +44,7 @@ parser.add_argument('--dataset', type=str, default='cifar10', help='cifar10 or c
 parser.add_argument('--num_max', type=int, default=1500, help='Number of samples in the maximal class')
 parser.add_argument('--ratio', type=float, default=2.0, help='Relative size between labeled and unlabeled data')
 parser.add_argument('--imb_ratio_l', type=int, default=100, help='Imbalance ratio for labeled data')
-parser.add_argument('--imb_ratio_u', type=int, default=100, help='Imbalance ratio for unlabeled data')
+parser.add_argument('--imb_ratio_u', type=float, default=100, help='Imbalance ratio for unlabeled data')
 parser.add_argument('--val-iteration', type=int, default=500, help='Frequency for the evaluation')
 # Hyperparameters for FixMatch
 parser.add_argument('--tau', default=0.95, type=float, help='hyper-parameter for pseudo-label of FixMatch')
