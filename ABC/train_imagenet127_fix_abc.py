@@ -138,6 +138,7 @@ def main():
         logger = Logger(os.path.join(args.out, 'log.txt'), title=title)
         logger.set_names(['Train Loss', 'Train Loss X', 'Train Loss U', 'abcloss', 'Test Loss', 'Test Acc.'])
 
+    test_accs = []
     for epoch in range(start_epoch, args.epochs):
         print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, state['lr']))
 
@@ -173,8 +174,13 @@ def main():
             'ema_state_dict': ema_model.state_dict(),
             'optimizer': optimizer.state_dict(),
         }, epoch + 1, args.out, save_freq=args.save_freq, is_best=is_best)
+        test_accs.append(test_acc)
 
     logger.close()
+
+    # Print the final results
+    print('Mean bAcc:')
+    print(np.mean(test_accs[-20:]))
 
 
 def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, ema_optimizer, criterion, epoch, ir2):
