@@ -46,8 +46,8 @@ parser.add_argument('--lr', '--learning-rate', default=0.002, type=float, metava
 # Checkpoints
 parser.add_argument('--out', default='result', help='Directory to output the result')
 # Method options
-parser.add_argument('--max_num_l', type=int)
-parser.add_argument('--max_num_u', type=int)
+parser.add_argument('--max_num_l', type=int, default=600)
+parser.add_argument('--max_num_u', type=int, default=300)
 parser.add_argument('--imb_ratio_l', type=int)
 parser.add_argument('--imb_ratio_u', type=int)
 parser.add_argument('--val-iteration', type=int, default=148, help='Frequency for the evaluation')
