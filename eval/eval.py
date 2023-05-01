@@ -77,7 +77,11 @@ def main(args):
         # feats = torch.cat(val_stat['feats']).cpu().numpy()
         # np.save('./figures/data/cifar10_r50_feats_base.npy', feats)
         # np.save('./figures/data/cifar10_r50_labels_base.npy', labels)
-        print(val_stat['mean_acc'])
+        ret = val_stat.ret
+        print('all: ', ret['all_acc'])
+        print('many: ', ret['many_shot_acc'])
+        print('medium: ', ret['medium_shot_acc'])
+        print('low: ', ret['low_shot_acc'])
 
 
 if __name__ == '__main__':

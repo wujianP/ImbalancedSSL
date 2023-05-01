@@ -159,6 +159,7 @@ class EvalEngine(object):
                     'acc_per_class': acc_per_class,
                     'feats': feats_all,
                     'labels': labels_all,
-                    'minority_acc': acc_per_class[half_num_class:].mean()}
+                    'minority_acc': acc_per_class[half_num_class:].mean(),
+                    'ret': ret}
 
         return val_stat
