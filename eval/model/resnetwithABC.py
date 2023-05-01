@@ -253,8 +253,8 @@ class ResNet(nn.Module):
         self.encoder = encoder
         self.feat_dim = feat_dim
 
-        self.fc_base = nn.Linear(self.feat_dim, num_classes)
-        self.fc_abc = nn.Linear(self.feat_dim, num_classes)
+        # self.fc_base = nn.Linear(self.feat_dim, num_classes)
+        self.fc = nn.Linear(self.feat_dim, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -273,10 +273,12 @@ class ResNet(nn.Module):
             print('==> Pretrained model loaded')
             self.encoder.load_state_dict(part_state_dict)
 
-    def forward(self, x):
+    def forward(self, x, return_feature=False):
 
         feats = self.encoder(x)
-        logits_abc = self.fc_abc(feats)
-        logits_base = self.fc_base(feats)
+        logits = self.fc(feats)
 
-        return feats, logits_abc, logits_base
+        if return_feature:
+            return [logits, None, feats]
+        else:
+            return logits, None
