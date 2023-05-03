@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser(description='PyTorch DARP Training')
 
 # Optimization options
 parser.add_argument('--epochs', default=300, type=int, metavar='N', help='number of total epochs to run')
-parser.add_argument('--val-iteration', type=int, default=500, help='Frequency for the evaluation')
+parser.add_argument('--val_iteration', type=int, default=500, help='Frequency for the evaluation')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
 parser.add_argument('--batch_size', default=64, type=int, metavar='N', help='train batchsize')
 parser.add_argument('--lr', '--learning-rate', default=0.002, type=float, metavar='LR', help='initial learning rate')
@@ -311,10 +311,8 @@ def train_fix(args, labeled_trainloader, unlabeled_trainloader, model, optimizer
             pseudo_orig_backup = pseudo_orig.clone()
 
             # Applying DARP
-            # if args.darp and epoch > args.warm:
-            #     if batch_idx % args.num_iter == 0:
-            if True:
-                if True:
+            if args.darp and epoch > args.warm:
+                if batch_idx % args.num_iter == 0:
                     # Iterative normalization
                     targets_u, weights_u = estimate_pseudo(target_disb, pseudo_orig, args.num_class, args.alpha)
                     scale_term = targets_u * weights_u.reshape(1, -1)
