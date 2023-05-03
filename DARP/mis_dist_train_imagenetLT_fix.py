@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.parallel
 
-from utils import Bar, Logger, AverageMeter, mkdir_p
+from utils import Bar, Logger, AverageMeter, mkdir_p, dist
 from common import validate, estimate_pseudo, opt_solver, save_checkpoint, SemiLoss, \
     WeightEMA
 
@@ -65,12 +65,25 @@ parser.add_argument('--max_num_u', type=int, default=300)
 parser.add_argument('--imb_ratio_l', type=int)
 parser.add_argument('--imb_ratio_u', type=int)
 
+# distributed training parameters
+parser.add_argument('--world_size', default=1, type=int,
+                    help='number of distributed processes')
+parser.add_argument('--local_rank', default=-1, type=int)
+parser.add_argument('--dist_on_itp', action='store_true')
+parser.add_argument('--dist_url', default='env://',
+                    help='url used to set up distributed training')
+parser.add_argument('--find_unused_parameters', action='store_true')
+parser.add_argument('--dist_eval', action='store_true', help='enable distributed evaluation/validation')
+
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
 
 # Use CUDA
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 use_cuda = torch.cuda.is_available()
+
+# distributed config
+dist.init_distributed_mode(args)
 
 # Random seed
 if args.manualSeed is None:
@@ -85,7 +98,7 @@ args.num_class = 1000
 def main():
     global best_acc
 
-    if not os.path.isdir(args.out):
+    if not os.path.isdir(args.out) and dist.is_main_process():
         mkdir_p(args.out)
 
     # Data
@@ -98,11 +111,35 @@ def main():
         num_per_class=f'{args.annotation_file_path}/maxL{args.max_num_l}_maxU{args.max_num_u}_imbL{args.imb_ratio_l}_imbU{args.imb_ratio_u}_sampleNum.txt')
     sample_num_per_class, train_labeled_set, train_unlabeled_set, test_set = tmp
 
-    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=4,
+    if args.distributed:
+        num_tasks = dist.get_world_size()
+        global_rank = dist.get_rank()
+        labeled_train_sampler = torch.utils.data.DistributedSampler(
+            dataset=train_labeled_set, num_replicas=num_tasks, rank=global_rank, shuffle=True)
+        unlabeled_train_sampler = torch.utils.data.DistributedSampler(
+            dataset=train_unlabeled_set, num_replicas=num_tasks, rank=global_rank, shuffle=True)
+        val_sampler = torch.utils.data.SequentialSampler(test_set)
+        print('Dist Sampler')
+    else:
+        labeled_train_sampler = torch.utils.data.RandomSampler(train_labeled_set)
+        unlabeled_train_sampler = torch.utils.data.RandomSampler(train_unlabeled_set)
+        val_sampler = torch.utils.data.SequentialSampler(test_set)
+        print('No Dist Sampler')
+
+    labeled_trainloader = data.DataLoader(train_labeled_set,
+                                          batch_size=args.batch_size,
+                                          sampler=labeled_train_sampler,
+                                          num_workers=4,
                                           drop_last=True)
-    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size=args.batch_size, shuffle=True,
-                                            num_workers=4, drop_last=True)
-    test_loader = data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    unlabeled_trainloader = data.DataLoader(train_unlabeled_set,
+                                            batch_size=args.batch_size,
+                                            sampler=unlabeled_train_sampler,
+                                            num_workers=4,
+                                            drop_last=True)
+    test_loader = data.DataLoader(test_set,
+                                  batch_size=args.batch_size,
+                                  sampler=val_sampler,
+                                  num_workers=4)
 
     # Data
     N_SAMPLES_PER_CLASS = sample_num_per_class['labeled']
@@ -126,13 +163,21 @@ def main():
     model = create_model()
     ema_model = create_model(ema=True)
 
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model,
+                                                          device_ids=[args.gpu],
+                                                          find_unused_parameters=args.find_unused_parameters)
+        model_without_ddp = model.module
+    else:
+        model_without_ddp = model
+
     cudnn.benchmark = True
     print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
 
     train_criterion = SemiLoss()
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    ema_optimizer = WeightEMA(model, ema_model, lr=args.lr, alpha=args.ema_decay)
+    optimizer = optim.Adam(model_without_ddp.parameters(), lr=args.lr)
+    ema_optimizer = WeightEMA(model_without_ddp, ema_model, lr=args.lr, alpha=args.ema_decay)
     start_epoch = 0
 
     # Resume
@@ -141,16 +186,19 @@ def main():
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
         assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
-        args.out = os.path.dirname(args.resume)
+        # args.out = os.path.dirname(args.resume)
         checkpoint = torch.load(args.resume)
         start_epoch = checkpoint['epoch']
-        model.load_state_dict(checkpoint['state_dict'])
+        model_without_ddp.load_state_dict(checkpoint['state_dict'])
         ema_model.load_state_dict(checkpoint['ema_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
-        logger = Logger(os.path.join(args.out, 'log.txt'), title=title, resume=True)
+        if dist.is_main_process():
+            logger = Logger(os.path.join(args.out, 'log.txt'), title=title)
+            logger.set_names(['Epoch', 'Train Loss', 'Train Loss X', 'Train Loss U', 'Test Loss', 'Test Acc.', 'Test GM.'])
     else:
-        logger = Logger(os.path.join(args.out, 'log.txt'), title=title)
-        logger.set_names(['Train Loss', 'Train Loss X', 'Train Loss U', 'Test Loss', 'Test Acc.', 'Test GM.'])
+        if dist.is_main_process():
+            logger = Logger(os.path.join(args.out, 'log.txt'), title=title)
+            logger.set_names(['Epoch', 'Train Loss', 'Train Loss X', 'Train Loss U', 'Test Loss', 'Test Acc.', 'Test GM.'])
 
     test_accs = []
 
@@ -161,6 +209,9 @@ def main():
 
     # Main function
     for epoch in range(start_epoch, args.epochs):
+        if args.distributed:
+            labeled_trainloader.sampler.set_epoch(epoch)
+            unlabeled_trainloader.sampler.set_epoch(epoch)
         print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, state['lr']))
 
         # Use the estimated distribution of unlabeled data
@@ -190,19 +241,22 @@ def main():
             is_best = True
 
         # Append logger file
-        print(f'Epoch:{epoch}-Acc{test_acc}')
-        logger.append([train_loss, train_loss_x, train_loss_u, test_loss, test_acc, 0.])
+        if dist.is_main_process():
+            print(f'Epoch:{epoch}-Acc{test_acc}')
+            logger.append([epoch, train_loss, train_loss_x, train_loss_u, test_loss, test_acc, 0.])
 
         # Save models
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
-            'ema_state_dict': ema_model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-        }, epoch + 1, args.out, save_freq=args.save_freq, is_best=is_best)
+        if dist.is_main_process():
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'state_dict': model.state_dict(),
+                'ema_state_dict': ema_model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            }, epoch + 1, args.out, save_freq=args.save_freq, is_best=is_best)
         test_accs.append(test_acc)
 
-    logger.close()
+    if dist.is_main_process():
+        logger.close()
 
     # Print the final results
     print('Mean bAcc:')
