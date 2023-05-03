@@ -19,7 +19,8 @@ import torch
 import torch.nn as nn
 import torch.nn.parallel
 
-from utils import Bar, Logger, AverageMeter, mkdir_p, dist
+from utils import Bar, Logger, AverageMeter, mkdir_p
+from utils import *
 from common import validate, estimate_pseudo, opt_solver, save_checkpoint, SemiLoss, \
     WeightEMA
 
@@ -73,7 +74,6 @@ parser.add_argument('--dist_on_itp', action='store_true')
 parser.add_argument('--dist_url', default='env://',
                     help='url used to set up distributed training')
 parser.add_argument('--find_unused_parameters', action='store_true')
-parser.add_argument('--dist_eval', action='store_true', help='enable distributed evaluation/validation')
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -83,7 +83,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 use_cuda = torch.cuda.is_available()
 
 # distributed config
-dist.init_distributed_mode(args)
+init_distributed_mode(args)
 
 # Random seed
 if args.manualSeed is None:
@@ -98,7 +98,7 @@ args.num_class = 1000
 def main():
     global best_acc
 
-    if not os.path.isdir(args.out) and dist.is_main_process():
+    if not os.path.isdir(args.out) and is_main_process():
         mkdir_p(args.out)
 
     # Data
@@ -192,11 +192,11 @@ def main():
         model_without_ddp.load_state_dict(checkpoint['state_dict'])
         ema_model.load_state_dict(checkpoint['ema_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
-        if dist.is_main_process():
+        if is_main_process():
             logger = Logger(os.path.join(args.out, 'log.txt'), title=title)
             logger.set_names(['Epoch', 'Train Loss', 'Train Loss X', 'Train Loss U', 'Test Loss', 'Test Acc.', 'Test GM.'])
     else:
-        if dist.is_main_process():
+        if is_main_process():
             logger = Logger(os.path.join(args.out, 'log.txt'), title=title)
             logger.set_names(['Epoch', 'Train Loss', 'Train Loss X', 'Train Loss U', 'Test Loss', 'Test Acc.', 'Test GM.'])
 
@@ -241,12 +241,12 @@ def main():
             is_best = True
 
         # Append logger file
-        if dist.is_main_process():
+        if is_main_process():
             print(f'Epoch:{epoch}-Acc{test_acc}')
             logger.append([epoch, train_loss, train_loss_x, train_loss_u, test_loss, test_acc, 0.])
 
         # Save models
-        if dist.is_main_process():
+        if is_main_process():
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
@@ -255,7 +255,7 @@ def main():
             }, epoch + 1, args.out, save_freq=args.save_freq, is_best=is_best)
         test_accs.append(test_acc)
 
-    if dist.is_main_process():
+    if is_main_process():
         logger.close()
 
     # Print the final results
