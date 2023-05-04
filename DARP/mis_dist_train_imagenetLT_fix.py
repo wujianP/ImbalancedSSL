@@ -250,7 +250,7 @@ def main():
         if is_main_process():
             save_checkpoint({
                 'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
+                'state_dict': model_without_ddp.state_dict(),
                 'ema_state_dict': ema_model.state_dict(),
                 'optimizer': optimizer.state_dict(),
             }, epoch + 1, args.out, save_freq=args.save_freq, is_best=is_best)
