@@ -190,6 +190,7 @@ def main():
         checkpoint = torch.load(args.resume)
         start_epoch = checkpoint['epoch']
         model_without_ddp.load_state_dict(checkpoint['state_dict'])
+        print(checkpoint['state_dict'])
         ema_model.load_state_dict(checkpoint['ema_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         if is_main_process():
