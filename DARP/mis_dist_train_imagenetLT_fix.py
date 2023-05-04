@@ -189,10 +189,8 @@ def main():
         # args.out = os.path.dirname(args.resume)
         checkpoint = torch.load(args.resume)
         start_epoch = checkpoint['epoch']
-        from IPython import embed
-        embed()
-        model_without_ddp.load_state_dict(checkpoint['state_dict'])
-        # print(checkpoint['state_dict'])
+        # model_without_ddp.load_state_dict(checkpoint['state_dict'])
+        model.load_state_dict(checkpoint['state_dict'])
         ema_model.load_state_dict(checkpoint['ema_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         if is_main_process():
