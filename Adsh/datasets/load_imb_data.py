@@ -79,7 +79,8 @@ def l_u_split(args, labels, label_per_class, unlabel_per_class):
 
     for i in range(args.num_classes):
         idx = np.where(labels == i)[0]
-        np.random.shuffle(idx)
+        if args.manualSeed !=0:
+            np.random.shuffle(idx)
         labeled_idx.extend(idx[:label_per_class[i]])
         unlabeled_idx.extend(idx[:label_per_class[i] + unlabel_per_class[i]])
 

@@ -1,8 +1,10 @@
-FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/SAW_cifar10_r20_seed0'
+conda activate /discobox/wjpeng/env/bmb/
+FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/SAW_cifar10_r20_seed2'
 mkdir $FOLDERDIR
 cd /discobox/wjpeng/code/ImbalancedSSL/SAW
 python train_fix_cifar10.py \
---manualSeed 0 \
+--manualSeed 2 \
+--gpu 2 \
 --epochs 500 \
 --start-epoch 0 \
 --batch-size 64 \
@@ -26,7 +28,4 @@ python train_fix_cifar10.py \
 --distbu pseudo \
 --normalize 1 \
 --out $FOLDERDIR \
- | tee ${PROGRESSTXT}/progress.txt
-
-python analysis.py \
---out $FOLDERDIR
+ | tee ${FOLDERDIR}/progress.txt
