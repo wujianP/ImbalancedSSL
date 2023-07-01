@@ -558,7 +558,7 @@ def validate(valloader, model, criterion, use_cuda, mode):
         else:
             GM *= (classwise_acc[i]) ** (1/num_class)
 
-    return (losses.avg, top1.avg, section_acc.numpy(), GM)
+    return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM)
 
 def estimate_pseudo(q_y, saved_q):
     pseudo_labels = torch.zeros(len(saved_q), num_class)
