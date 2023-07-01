@@ -139,6 +139,7 @@ np.random.seed(args.manualSeed)
 best_acc = 0  # best test accuracy
 num_class = 10 # CIFAR-10
 
+
 def main():
     global best_acc
 
@@ -676,6 +677,8 @@ class WeightEMA(object):
     def step(self):
         one_minus_alpha = 1.0 - self.alpha
         for param, ema_param in zip(self.params, self.ema_params):
+            from IPython import embed
+            embed()
             ema_param.mul_(self.alpha)
             ema_param.add_(param * one_minus_alpha)
             # customized weight decay
