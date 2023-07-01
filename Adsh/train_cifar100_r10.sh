@@ -1,11 +1,11 @@
 conda activate /discobox/wjpeng/env/bmb/
-FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/Adsh_cifar100_r10_seed1'
+FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/Adsh_cifar100_r10_seed2'
 mkdir $FOLDERDIR
 cd /discobox/wjpeng/code/ImbalancedSSL/Adsh
 
 python train_fix_cifar10.py \
---gpu-id 7 \
---manualSeed 1 \
+--gpu-id 0 \
+--manualSeed 2 \
 --al adsh \
 --dataset cifar100 \
 --num_classes 100 \
