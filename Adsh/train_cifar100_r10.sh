@@ -1,20 +1,20 @@
 conda activate /discobox/wjpeng/env/bmb/
-FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/Adsh_cifar10_r20_seed2'
+FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/Adsh_cifar100_r10_seed1'
 mkdir $FOLDERDIR
 cd /discobox/wjpeng/code/ImbalancedSSL/Adsh
 
 python train_fix_cifar10.py \
---gpu-id 5 \
---manualSeed 2 \
+--gpu-id 7 \
+--manualSeed 1 \
 --al adsh \
---dataset cifar10 \
---num_classes 10 \
+--dataset cifar100 \
+--num_classes 100 \
 --mu 1 \
 --total_steps 250000 \
 --eval_steps 500 \
---num_max 1500 \
+--num_max 150 \
 --label_ratio 2.0 \
---imb_ratio_l 20 \
---imb_ratio_u 20 \
+--imb_ratio_l 10 \
+--imb_ratio_u 10 \
 --out $FOLDERDIR \
  | tee ${FOLDERDIR}/progress.txt
