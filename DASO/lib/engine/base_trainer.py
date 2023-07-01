@@ -127,7 +127,7 @@ class BaseTrainer:
     def _build_writers(self, cfg: CfgNode) -> list:
         writers = (
             [
-                CommonMetricPrinter(max_iter=self.max_iter),
+                CommonMetricPrinter(max_iter=self.max_iter, log_dir=self.cfg.OUTPUT_DIR),
                 JSONWriter(os.path.join(self.cfg.OUTPUT_DIR, "metrics.json")),
                 TensorboardWriter(log_dir=self.cfg.OUTPUT_DIR)
             ]

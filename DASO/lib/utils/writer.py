@@ -1,6 +1,8 @@
 import datetime
 import json
 import logging
+import os.path
+from .logger import Logger
 
 import torch
 
@@ -25,9 +27,12 @@ class CommonMetricPrinter(Writer):
     iteration time, ETA, memory, all losses, and the learning rate.
     """
 
-    def __init__(self, max_iter: int) -> None:
+    def __init__(self, max_iter: int, log_dir: str) -> None:
         self.logger = logging.getLogger(__name__)
         self._max_iter = max_iter
+
+        self.result_logger = Logger(os.path.join(log_dir, 'result_log.txt'))
+        self.result_logger.set_names(["test/top1", "test/top1_median20", "test/top1_la", "test/top1_la_median20"])
 
     def write(self, meters: Meters) -> None:
         metrics = meters.get_latest_scalars_with_avg()
@@ -79,10 +84,13 @@ class CommonMetricPrinter(Writer):
 
         log_text = "Evaluation results: "
         prefix_keys = ["test/top1", "test/top1_median20", "test/top1_la", "test/top1_la_median20"]
+        ret = []
         for _prefix in prefix_keys:
             if _prefix in metrics.keys():
                 log_text += "{}: {:.1f}  ".format(_prefix, metrics[_prefix])
+                ret.append(metrics[_prefix])
         self.logger.info(log_text)
+        self.result_logger.append(ret)
 
 
 class JSONWriter(Writer):

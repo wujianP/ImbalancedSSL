@@ -1,5 +1,6 @@
 conda activate /discobox/wjpeng/env/bmb/
 FOLDERDIR="/discobox/wjpeng/ckp/BMB/rebuttal/baselines/DASO_cifar10_r20_seed0"
+mkdir $FOLDERDIR
 cd /discobox/wjpeng/code/ImbalancedSSL/DASO
 
 python main.py \
@@ -11,4 +12,5 @@ DATASET.CIFAR10.NUM_UNLABELED_HEAD 3000 \
 DATASET.CIFAR10.IMB_FACTOR_L 20 \
 DATASET.CIFAR10.IMB_FACTOR_UL 20 \
 SOLVER.UNLABELED_BATCH_RATIO 1 \
-OUTPUT_DIR ${FOLDERDIR}
+OUTPUT_DIR ${FOLDERDIR} \
+ | tee $FOLDERDIR/progress.txt
