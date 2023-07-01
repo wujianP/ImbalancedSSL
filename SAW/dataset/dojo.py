@@ -61,9 +61,9 @@ def validate(valloader, num_class, model, criterion, use_cuda, mode):
     end = time.time()
     bar = Bar(f'{mode}', max=len(valloader))
 
-    classwise_correct = torch.zeros(num_class)
-    classwise_num = torch.zeros(num_class)
-    section_acc = torch.zeros(3)
+    classwise_correct = torch.zeros(num_class).cuda()
+    classwise_num = torch.zeros(num_class).cuda()
+    section_acc = torch.zeros(3).cuda()
 
     with torch.no_grad():
         for batch_idx, (inputs, targets, _) in enumerate(valloader):
@@ -126,7 +126,7 @@ def validate(valloader, num_class, model, criterion, use_cuda, mode):
         else:
             GM *= (classwise_acc[i]) ** (1/num_class)
 
-    return (losses.avg, top1.avg, section_acc.numpy(), GM)
+    return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM)
 
 def dojoTest(dataLoaders, num_class, ema_model, criterion, use_cuda) :
     '''
