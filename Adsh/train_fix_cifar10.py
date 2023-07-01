@@ -14,8 +14,8 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 
 from sklearn.metrics import precision_score, recall_score
-from models.ema import WeightEMA
-from models.wideresnet import WideResNet
+from datasets.models.ema import WeightEMA
+from datasets.models.wideresnet import WideResNet
 from algorithms.fixmatch import FixMatch, ADSH
 from datasets.load_imb_data import *
 from utils.misc import *
