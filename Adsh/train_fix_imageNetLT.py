@@ -70,6 +70,8 @@ parser.add_argument('--save_freq', type=int, default=30)
 
 args = parser.parse_args()
 
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
+
 if args.manualSeed is None:
     args.manualSeed = random.randint(1, 10000)
 random.seed(args.manualSeed)
@@ -273,8 +275,8 @@ def test(args, test_loader, model):
             data_time.update(time.time() - end)
             model.eval()
 
-            inputs = inputs.to(args.device)
-            targets = targets.to(args.device).long()
+            inputs = inputs.cuda()
+            targets = targets.cuda().long()
             outputs = model(inputs)[0]
             loss = F.cross_entropy(outputs, targets)
 
