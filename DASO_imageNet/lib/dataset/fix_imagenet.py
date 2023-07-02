@@ -127,7 +127,7 @@ class ImageNetLT(Dataset):
 
     def __getitem__(self, index):
         path = self.path_list[index]
-        label = -1 if self.is_unknown else self.targets[index]
+        label = self.targets[index]
 
         with open(path, 'rb') as f:
             sample = Image.open(f).convert('RGB')
