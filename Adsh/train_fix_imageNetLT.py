@@ -157,7 +157,6 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
         optimizer.load_state_dict(checkpoint['optimizer'])
 
     logger.info("***** Running training *****")
-    logger.info(f"  Task = {args.dataset}@{args.label_ratio}@{args.imb_ratio_l}")
     logger.info(f"  Num Epochs = {args.epochs}")
     logger.info(f"  Batch size per GPU = {args.batch_size}")
     logger.info(f"  Total optimization steps = {args.total_steps}")
