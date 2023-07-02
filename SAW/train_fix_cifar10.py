@@ -157,7 +157,7 @@ def main():
     
     distb_dict = gtDict(N_SAMPLES_PER_CLASS_T, U_SAMPLES_PER_CLASS, use_cuda) # Collect Ground Truth Distribution
 
-    datasets = dataset.get_cifar10('/root/data', N_SAMPLES_PER_CLASS,
+    datasets = dataset.get_cifar10('./data', N_SAMPLES_PER_CLASS,
                                                         U_SAMPLES_PER_CLASS, IMB_TEST_PER_CLASS)
 
     # dataLoaders = prepareDataLoaders(datasets)
@@ -623,7 +623,8 @@ def save_checkpoint(state, epoch, checkpoint=args.out, filename='checkpoint.pth.
     
     if int(epoch / 100) > 1 :
         new_filename = str(epoch) + "_" + filename
-        file_loc = "checkpoints/" + new_filename
+        # file_loc = "checkpoints/" + new_filename
+        file_loc = new_filename
         filepath = os.path.join(checkpoint, file_loc)
         torch.save(state, filepath)
         print("Saved Epoch at: ", filepath)

@@ -2,7 +2,7 @@
 <project version="4">
   <component name="SshConfigs">
     <configs>
-      <sshConfig host="10.176.53.102" id="f1151714-9c42-488a-8835-85ab976197f4" keyPath="C:\Users\10512\.ssh\id_rsa_jia" port="1245" customName="jia@FVL" nameFormat="CUSTOM" username="jia" useOpenSSHConfig="true">
+      <sshConfig host="10.176.42.24" id="f1151714-9c42-488a-8835-85ab976197f4" keyPath="C:\Users\10512\.ssh\id_rsa_jia_new" port="22" customName="jia@FVL" nameFormat="CUSTOM" username="jia" useOpenSSHConfig="true">
         <option name="customName" value="jia@FVL" />
       </sshConfig>
     </configs>
