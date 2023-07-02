@@ -18,11 +18,9 @@ MODEL:
     UNLABELED_LOSS_WEIGHT: 1.0
 
 DATASET:
-  BUILDER: "build_imagenet_dataset"
-  NAME: "imagenetLT"
-  ROOT: "./data/cifar10"
-  NUM_VALID: 5000
-  REVERSE_UL_DISTRIBUTION: False
+  DATA_PATH: ''
+  ANN_PATH: ''
+  LABELED_RATIO: 20
 
   TRANSFORM:
     STRONG_AUG: True

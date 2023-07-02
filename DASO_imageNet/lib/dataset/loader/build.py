@@ -81,7 +81,12 @@ def _build_loader(
 
 def build_data_loaders(cfg: CfgNode) -> Tuple[DataLoader]:
     builder = cfg.DATASET.BUILDER
-    l_train, ul_train, val_dataset, test_dataset = eval(builder)(cfg)
+    l_train, ul_train, val_dataset, test_dataset = build_imagenet_dataset(
+        root=cfg.DATASET.DATA_PATH,
+        annotation_file_train_labeled=f'{cfg.DATASET.ANN_PATH}/ImageNet_LT_train_semi_{int(cfg.DATASET.LABELED_RATIO)}_labeled.txt',
+        annotation_file_train_unlabeled=f'{cfg.DATASET.ANN_PATH}/ImageNet_LT_train_semi_{int(cfg.DATASET.LABELED_RATIO)}_unlabeled.txt',
+        annotation_file_val=f'{cfg.DATASET.ANN_PATH}/ImageNet_LT_val.txt',
+        num_per_class=f'{cfg.DATASET.ANN_PATH}/ImageNet_LT_train_semi_{int(cfg.DATASET.LABELED_RATIO)}_sample_num.txt')
 
     l_loader = torch.utils.data.DataLoader(l_train, batch_size=cfg.SOLVER.IMS_PER_BATCH, shuffle=True, num_workers=6,
                                           drop_last=True)
