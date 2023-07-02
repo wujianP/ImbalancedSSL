@@ -26,8 +26,15 @@ class DASO(SemiSupervised):
 
         # measure data time
         start = time.perf_counter()
-        l_images, labels, _ = next(self._l_iter)
-        (ul_weak, ul_strong), UL_LABELS, ul_indices = next(self._ul_iter)
+        try:
+            l_images, labels, _ = next(self._l_iter)
+            (ul_weak, ul_strong), UL_LABELS, ul_indices = next(self._ul_iter)
+        except:
+            self._l_iter = iter(self.l_loader)
+            self._ul_iter = iter(self.ul_loader)
+            l_images, labels, _ = next(self._l_iter)
+            (ul_weak, ul_strong), UL_LABELS, ul_indices = next(self._ul_iter)
+
         data_time = time.perf_counter() - start
 
         # load images and labels onto gpu
