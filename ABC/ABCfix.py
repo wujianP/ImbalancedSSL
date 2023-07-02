@@ -45,7 +45,8 @@ parser.add_argument('--num_max_l', type=int, default=1500,
 parser.add_argument('--num_max_u', type=int, default=3000,
                         help='Number of samples in the maximal class')
 parser.add_argument('--label_ratio', type=float, default=20, help='percentage of labeled data')
-parser.add_argument('--imb_ratio', type=int, default=100, help='Imbalance ratio')
+parser.add_argument('--imb_ratio_l', type=int, default=100, help='Imbalance ratio')
+parser.add_argument('--imb_ratio_u', type=int, default=100, help='Imbalance ratio')
 parser.add_argument('--step', action='store_true', help='Type of class-imbalance')
 parser.add_argument('--val-iteration', type=int, default=500,
                         help='Frequency for the evaluation')
@@ -90,8 +91,8 @@ def main():
     if not os.path.isdir(args.out):
         mkdir_p(args.out)
 
-    N_SAMPLES_PER_CLASS = make_imb_data(args.num_max_l, num_class, args.imb_ratio, args.imbalancetype)
-    U_SAMPLES_PER_CLASS = make_imb_data(args.num_max_u, num_class, args.imb_ratio, args.imbalancetype)
+    N_SAMPLES_PER_CLASS = make_imb_data(args.num_max_l, num_class, args.imb_ratio_l, args.imbalancetype)
+    U_SAMPLES_PER_CLASS = make_imb_data(args.num_max_u, num_class, args.imb_ratio_u, args.imbalancetype)
     print(N_SAMPLES_PER_CLASS)
     print(U_SAMPLES_PER_CLASS)
     ir2=N_SAMPLES_PER_CLASS[-1]/np.array(N_SAMPLES_PER_CLASS)

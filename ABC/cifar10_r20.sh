@@ -1,15 +1,15 @@
 conda activate /discobox/wjpeng/env/bmb/
-FOLDERDIR="/discobox/wjpeng/ckp/BMB/rebuttal/baselines/ABC_cifar10_r20_seed0"
+FOLDERDIR="/discobox/wjpeng/ckp/BMB/rebuttal/baselines/ABC_cifar100_r10_seed2"
 cd /discobox/wjpeng/code/ImbalancedSSL/ABC
 mkdir $FOLDERDIR
 
 python ABCfix.py \
---gpu 2 \
---manualSeed 0 \
---num_max_l 1500 \
---num_max_u 3000 \
---dataset cifar10 \
---imb_ratio 20 \
+--gpu 7 \
+--manualSeed 2 \
+--num_max_l 150 \
+--num_max_u 300 \
+--dataset cifar100 \
+--imb_ratio 10 \
 --epoch 500 \
 --val-iteration 500 \
 --out $FOLDERDIR
