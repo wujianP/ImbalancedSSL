@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset
 from PIL import Image
 import os
+import numpy as np
 from torchvision.transforms import transforms
 from RandAugment import RandAugment
 
@@ -133,3 +134,15 @@ class ImageNetLT(Dataset):
             sample = self.transform(sample)
 
         return sample, label, index
+
+    def _load_num_samples_per_class(self):
+        labels = self.targets
+        num_classes = self.num_classes
+
+        classwise_num_samples = dict()
+        for i in range(num_classes):
+            classwise_num_samples[i] = len(np.where(labels == i)[0])
+
+        # in a descending order of classwise count. [(class_idx, count), ...]
+        res = sorted(classwise_num_samples.items(), key=(lambda x: x[1]), reverse=True)
+        return res
