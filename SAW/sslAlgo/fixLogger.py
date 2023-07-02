@@ -56,7 +56,7 @@ def loadLogger(path, title="") :
 
     return loggerDict
 
-def appendLogger(stats, distb_dict, loggerDict, printer=False) :
+def appendLogger(stats, distb_dict, loggerDict, printer=True) :
     # torch -> list
     # pseudo_distb_u = distb_dict["pseudo"].cpu().detach().tolist()
     # pseudo_distb_u = [int(p) for p in pseudo_distb_u]

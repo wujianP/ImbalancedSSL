@@ -286,7 +286,7 @@ def main():
         # Append logger file
         stats = [train_loss, train_loss_x, train_loss_u, train_acc_x, train_gm_x,\
             test_loss, test_acc, test_gm]
-        loggerDict = appendLogger(stats, dojoStats, distb_dict, loggerDict, printer=True)
+        loggerDict = appendLogger(stats, dojoStats, distb_dict, loggerDict)
 
         # Save models
         save_checkpoint({

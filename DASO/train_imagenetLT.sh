@@ -10,7 +10,7 @@ python main.py \
 --config-file configs/fixmatch_daso_imagenetLT.yaml \
 DATASET.LABELED_RATIO 20 \
 DATASET.NAME cifar10 \
-GPU_ID 5 \
+GPU_ID 4 \
 SOLVER.MAX_ITER 15000 \
 PERIODS.EVAL 500 \
 ALGORITHM.CONFIDENCE_THRESHOLD 0.7 \
