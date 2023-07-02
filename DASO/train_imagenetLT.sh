@@ -1,4 +1,5 @@
 conda activate /discobox/wjpeng/env/bmb/
+CUDA_LAUNCH_BLOCKING=1
 FOLDERDIR="/discobox/wjpeng/ckp/BMB/rebuttal/baselines/imagenetLT/DASO_20per"
 DATA_PATH='/dev/shm/imagenet'
 ANN_PATH='/discobox/wjpeng/code/img127-tcp/dataset/ImageNet_LT'

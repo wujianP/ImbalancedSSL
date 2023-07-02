@@ -42,6 +42,8 @@ def weight_reduce_loss(
     """
     # if weight is specified, apply element-wise weight
     if weight is not None:
+        from IPython import embed
+        embed()
         if weight.abs().sum() == 0:
             return reduce_loss(loss * 0, reduction)
         if weight.ndim < loss.ndim:
