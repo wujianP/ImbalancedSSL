@@ -157,6 +157,8 @@ class DASOModel(SemiModel):
         logits_weak, logits_strong = logits_concat[num_labels:].chunk(2)
         with torch.no_grad():
             # compute pseudo-label
+            from IPython import embed
+            embed()
             p = logits_weak.softmax(dim=1)  # soft pseudo labels
             confidence, pred_class = torch.max(p.detach(), dim=1)  # (B, 1)
             logger_dict.update({"linear_pl": pred_class})  # linear pl
