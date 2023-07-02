@@ -18,8 +18,8 @@ MODEL:
     UNLABELED_LOSS_WEIGHT: 1.0
 
 DATASET:
-  DATA_PATH: ''
-  ANN_PATH: ''
+  DATA_PATH: '/dev/shm/imagenet'
+  ANN_PATH: '/discobox/wjpeng/code/img127-tcp/dataset/ImageNet_LT'
   LABELED_RATIO: 20
 
   TRANSFORM:
