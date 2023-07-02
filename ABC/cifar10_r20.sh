@@ -1,7 +1,7 @@
 conda activate /discobox/wjpeng/env/bmb/
 FOLDERDIR="/discobox/wjpeng/ckp/BMB/rebuttal/baselines/ABC_cifar10_r20_seed0"
-mkdir $FOLDERDIR
 cd /discobox/wjpeng/code/ImbalancedSSL/ABC
+mkdir $FOLDERDIR
 
 python ABCfix.py \
 --gpu 2 \
