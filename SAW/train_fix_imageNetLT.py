@@ -266,7 +266,7 @@ def main():
                                                                             class_weight_u)
 
         # Evaluation part
-        ___, train_acc_x, ___, train_gm_x = validate(dataLoaders["labeled"], ema_model, criterion, use_cuda, mode='Train Stats')
+        # ___, train_acc_x, ___, train_gm_x = validate(dataLoaders["labeled"], ema_model, criterion, use_cuda, mode='Train Stats')
         test_loss, test_acc, test_cls, test_gm = validate(dataLoaders["Test"], ema_model, criterion, use_cuda, mode='Test Stats ')
         # dojoStats = dojoTest(dataLoaders, num_class, ema_model, criterion, use_cuda)
 
@@ -283,7 +283,7 @@ def main():
         #     lambda_u * 1.1
 
         # Append logger file
-        stats = [train_loss, train_loss_x, train_loss_u, train_acc_x, train_gm_x,\
+        stats = [train_loss, train_loss_x, train_loss_u, 0, 0,\
             test_loss, test_acc, test_gm]
         loggerDict = appendLogger(stats, distb_dict, loggerDict, printer=True)
 
