@@ -21,20 +21,26 @@ import torchvision.transforms as transforms
 import torch.nn.functional as F
 
 import models.wrn as models
-# from models.ema import WeightEMA
-# import dataset.fix_cifar10 as dataset
-import dataset.imbCIFAR100 as dataset
+from dataset import get_imagenet
 from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
 from scipy import optimize
 
-# Class Weights and Custom Libraries
+# from dataset.dataTools import make_imb_data
 from dataset.dataTools import make_imb_data, gtDict, prob2Distribution, prepareDataLoaders
 from sslAlgo.fixLogger import createLogger, loadLogger, appendLogger, closeLogger
 from imbOptim.classWeights import parseClassWeights, createSettings, getClassWeights
 
+from dataset.dojo import dojoTest
+
 parser = argparse.ArgumentParser(description='PyTorch FixMixMatch Training')
+# ADD by WJ
+parser.add_argument('--data_path', required=True, type=str)
+parser.add_argument('--annotation_file_path', required=True, type=str)
+parser.add_argument('--save_freq', type=int, default=30)
+parser.add_argument('--labeled_ratio', type=float, default=20, help='by default we take 20% labeled data')
+
 # Optimization options
-parser.add_argument('--epochs', default=500, type=int, metavar='N',
+parser.add_argument('--epochs', default=300, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -56,22 +62,11 @@ parser.add_argument('--gpu', default='0', type=str,
                     help='id(s) for CUDA_VISIBLE_DEVICES')
 
 # Method options
-parser.add_argument('--num_max', type=int, default=150,
-                        help='Number of samples in the maximal class')
-parser.add_argument('--ratio', type=float, default=2.0,
-                        help='Relative size between labeled and unlabeled data')
-parser.add_argument('--imb_ratio_l', type=int, default=100,
-                        help='Imbalance ratio for labeled data')
-parser.add_argument('--imb_ratio_u', type=int, default=100,
-                        help='Imbalance ratio for unlabeled data')
-parser.add_argument('--step', action='store_true', help='Type of class-imbalance')
 parser.add_argument('--val-iteration', type=int, default=500,
                         help='Frequency for the evaluation')
-parser.add_argument('--num_val', type=int, default=10,
-                        help='Number of validation data')
 
 # Hyperparameters for FixMatch
-parser.add_argument('--tau', default=0.95, type=float, help='hyper-parameter for pseudo-label of FixMatch')
+parser.add_argument('--tau', default=0.7, type=float, help='hyper-parameter for pseudo-label of FixMatch')
 parser.add_argument('--ema-decay', default=0.999, type=float)
 parser.add_argument('--lambda_u', default=1, type=float, help='Weight-parameter for Unsupervised Loss')
 
@@ -83,47 +78,46 @@ parser.add_argument('--est', action='store_true', help='Using estimated distribu
 parser.add_argument('--iter_T', type=int, default=10, help='Number of iteration (T) for DARP')
 parser.add_argument('--num_iter', type=int, default=10, help='Scheduling for updating pseudo-labels')
 
-# # Weights for Model's Cost Function
-# # parser.add_argument('--w_L', choices=["", "default", "total", "minority"], help='Applying Weights to Loss: \
-# #     \n (default/blank) = Uniform Weight of Ones \
-# #     \n total = Class Distribution / Total Class Distribution : [1, 3] \
-# #     \n minority = Class Distribution / Minority Class Distribution : [1, inf]') # Old Arugment
-# parser.add_argument('--distbu', choices=["", "uniform", "pseudo", \
-#     "weak", "strong", "gt", "gt_l", "gt_u"], \
-#     help='Applying Weights to Unsupervised Loss \
-#     \n (blank/uniform) = Uniform Weight of Ones \
-#     \n pseudo = Using Pseudo-Label Class Distribution \
-#     \n weak = Using Weakly Augmented Output Class Distribution \
-#     \n strong = Using Strongly Augmented Output Class Distribution \
-#     \n gt = Using Ground Truth Class Distribution (Labeled + Unlabeled) \
-#     \n gt_l = Using Ground Truth Class Distribution (Labeled) \
-#     \n gt_u = Using Ground Truth Class Distribution (Unlabeled)') 
+# Weights for Model's Cost Function
+# parser.add_argument('--w_L', choices=["", "default", "total", "minority"], help='Applying Weights to Loss: \
+#     \n (default/blank) = Uniform Weight of Ones \
+#     \n total = Class Distribution / Total Class Distribution : [1, 3] \
+#     \n minority = Class Distribution / Minority Class Distribution : [1, inf]') # Old Arugment
+parser.add_argument('--distbu', choices=["", "uniform", "pseudo", \
+    "weak", "strong", "gt", "gt_l", "gt_u"], \
+    help='Applying Weights to Unsupervised Loss \
+    \n (blank/uniform) = Uniform Weight of Ones \
+    \n pseudo = Using Pseudo-Label Class Distribution \
+    \n weak = Using Weakly Augmented Output Class Distribution \
+    \n strong = Using Strongly Augmented Output Class Distribution \
+    \n gt = Using Ground Truth Class Distribution (Labeled + Unlabeled) \
+    \n gt_l = Using Ground Truth Class Distribution (Labeled) \
+    \n gt_u = Using Ground Truth Class Distribution (Unlabeled)') 
 
-# parser.add_argument('--distbl', choices=["", "uniform", "gt_l"], \
-#     help="Applying Weights to Supervised Loss \
-#         \n (blank/uniform) = Uniform Weight of Ones \
-#         \n gt_l = Using Ground Truth Class Distribution (Labeled)")
+parser.add_argument('--distbl', choices=["", "uniform", "gt_l"], \
+    help="Applying Weights to Supervised Loss \
+        \n (blank/uniform) = Uniform Weight of Ones \
+        \n gt_l = Using Ground Truth Class Distribution (Labeled)")
 
-# # For Weighting Function Schemes
-# parser.add_argument('--invert', action='store_true', \
-#      help='If declared, flip class weights on Loss (Penalize Minority more than Majority)')
-# parser.add_argument('--normalize', default=None, type=float, \
-#      help='Normalize class weights on Loss according to number of classes \
-#          \n such that sum(weights) = num_class * norm_const')
-# parser.add_argument('--total', default=None, type=float, \
-#      help='Using Total-Schemed Weights to Unsupervised Loss m*(Class/Total) + 1')
-# parser.add_argument('--minority', default=None, type=float, \
-#      help='Using Minority-Schemed Weights to Unsupervised Loss (Class/Minority)')
-# parser.add_argument('--intercept', default=None, type=float, \
-#      help='Using Intercept-Schemed Weights to Unsupervised Loss (Class/Total) + b')
-# parser.add_argument('--log', default=None, type=float, \
-#      help='Using Minority-Schemed Weights to Unsupervised Loss (log(a*Class)/log(Total))')
-# parser.add_argument('--effective', default=None, type=float, \
-#      help='Using Effective Number-Schemed Weights to Unsupervised Loss ((1-beta)/(1-beta^Class)) \
-#          \n Note: Hyperparameter is automatically calculated')
-# parser.add_argument('--power', default=None, type=float, \
-#      help='Using Powered-Schemed Weights to Unsupervised Loss (Total/Class)^alpha')
-parseClassWeights(parser)
+# For Weighting Function Schemes
+parser.add_argument('--invert', action='store_true', \
+     help='If declared, flip class weights on Loss (Penalize Minority more than Majority)')
+parser.add_argument('--normalize', default=None, type=float, \
+     help='Normalize class weights on Loss according to number of classes \
+         \n such that sum(weights) = num_class * norm_const')
+parser.add_argument('--total', default=None, type=float, \
+     help='Using Total-Schemed Weights to Unsupervised Loss m*(Class/Total) + 1')
+parser.add_argument('--minority', default=None, type=float, \
+     help='Using Minority-Schemed Weights to Unsupervised Loss (Class/Minority)')
+parser.add_argument('--intercept', default=None, type=float, \
+     help='Using Intercept-Schemed Weights to Unsupervised Loss (Class/Total) + b')
+parser.add_argument('--log', default=None, type=float, \
+     help='Using Minority-Schemed Weights to Unsupervised Loss (log(a*Class)/log(Total))')
+parser.add_argument('--effective', default=None, type=float, \
+     help='Using Effective Number-Schemed Weights to Unsupervised Loss ((1-beta)/(1-beta^Class)) \
+         \n Note: Hyperparameter is automatically calculated')
+parser.add_argument('--power', default=None, type=float, \
+     help='Using Powered-Schemed Weights to Unsupervised Loss (Total/Class)^alpha')
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -138,8 +132,8 @@ if args.manualSeed is None:
 np.random.seed(args.manualSeed)
 
 best_acc = 0  # best test accuracy
-# num_class = 10 # CIFAR-10
-num_class = 100 # CIFAR-100
+num_class = 1000 # ImageNet-LT
+
 
 def main():
     global best_acc
@@ -148,29 +142,38 @@ def main():
         mkdir_p(args.out)
 
     # Data
-    print(f'==> Preparing imbalanced CIFAR-100')
+    print(f'==> Preparing ImageNet-LT')
+    tmp = get_imagenet(
+        root=args.data_path,
+        annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
+        annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
+        annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
+        num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
+    sample_num_per_class, train_labeled_set, train_unlabeled_set, test_set = tmp
 
-    N_SAMPLES_PER_CLASS = make_imb_data(args.num_max, num_class, args.imb_ratio_l)  # ground_truth labeled
-    U_SAMPLES_PER_CLASS = make_imb_data(args.ratio * args.num_max, num_class, args.imb_ratio_u) # ground truth unlabeled
+    labeled_trainloader = data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=6,
+                                          drop_last=True)
+    unlabeled_trainloader = data.DataLoader(train_unlabeled_set, batch_size= args.batch_size, shuffle=True,
+                                            num_workers=6, drop_last=True)
+    test_loader = data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=6)
+    dataLoaders = {}
+    dataLoaders["labeled"] = labeled_trainloader
+    dataLoaders["unlabeled"] = unlabeled_trainloader
+    dataLoaders["Test"] = test_loader
+
+    N_SAMPLES_PER_CLASS = sample_num_per_class['labeled']
+    U_SAMPLES_PER_CLASS = sample_num_per_class['unlabeled']
     N_SAMPLES_PER_CLASS_T = torch.Tensor(N_SAMPLES_PER_CLASS)
-    IMB_TEST_PER_CLASS = make_imb_data(1000, num_class, args.imb_ratio_u) # test dataset
-    print("Imbalanced Test Set Distribution = ", IMB_TEST_PER_CLASS)
     
     distb_dict = gtDict(N_SAMPLES_PER_CLASS_T, U_SAMPLES_PER_CLASS, use_cuda) # Collect Ground Truth Distribution
 
-    # datasets = dataset.get_cifar10('/root/data', N_SAMPLES_PER_CLASS,
-    #                                                     U_SAMPLES_PER_CLASS, IMB_TEST_PER_CLASS)
-    datasets = dataset.get_cifar100('/root/data', N_SAMPLES_PER_CLASS,
-                                                        U_SAMPLES_PER_CLASS, IMB_TEST_PER_CLASS)
-
-    dataLoaders = prepareDataLoaders(datasets, args.batch_size)
-
     # Model (Wide ResNet model)
-    print("==> creating WRN-28-2")
+    print("==> creating Resnet50")
 
     # Used for Fix Match
     def create_model(ema=False):
-        model = models.WRN(2, num_class)
+        from models.resnetwithABC import ResNet
+        model = ResNet(num_classes=num_class, encoder_name='resnet', pretrained=False)
         model = model.cuda()
 
         if ema:
@@ -188,11 +191,11 @@ def main():
     train_criterion = SemiLoss()
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
-    ema_optimizer= WeightEMA(model, ema_model, lr=args.lr, alpha=args.ema_decay) # Exponential Moving Avg
+    ema_optimizer= WeightEMA(model, ema_model, alpha=args.ema_decay) # Exponential Moving Avg
     start_epoch = 0
 
     # Resume
-    title = 'fix-cifar-100'
+    title = 'fix-imagenet-lt-20'
     if args.resume:
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
@@ -215,8 +218,7 @@ def main():
                                             intercept=args.intercept, log=args.log, \
                                                 effective=args.effective, power=args.power)
         
-        class_weight_x = getClassWeights(distbLoss_dict["labeled"], weightLoss, \
-            0, args.darp, distb_dict, use_cuda)
+        class_weight_x = getClassWeights(distbLoss_dict["labeled"], weightLoss, 0, args.darp, distb_dict, use_cuda)
         printSettings(start_epoch, distbLoss_dict, weightLoss)
         loggerDict = createLogger(args.out, num_class, title)
 
@@ -226,8 +228,8 @@ def main():
 
     # Default values for ReMixMatch and DARP
     emp_distb_u = torch.ones(num_class) / num_class
-    pseudo_orig = torch.ones(len(datasets["unlabeled"].targets), num_class) / num_class
-    pseudo_refine = torch.ones(len(datasets["unlabeled"].targets), num_class) / num_class
+    pseudo_orig = torch.ones(len(train_unlabeled_set.targets), num_class) / num_class
+    pseudo_refine = torch.ones(len(train_unlabeled_set.targets), num_class) / num_class
 
     # Lambda_u scheduler
     prev_train_loss = 10000
@@ -266,13 +268,7 @@ def main():
         # Evaluation part
         ___, train_acc_x, ___, train_gm_x = validate(dataLoaders["labeled"], ema_model, criterion, use_cuda, mode='Train Stats')
         test_loss, test_acc, test_cls, test_gm = validate(dataLoaders["Test"], ema_model, criterion, use_cuda, mode='Test Stats ')
-        dojoStats = dojoTest(dataLoaders, ema_model, criterion, use_cuda)
-
-        # Use Pseudo_orig as the Class Distribution (Take Note of this!!!)
-        # Note: Pseudo_refine is used for DARP (if Not, do not need)
-        # print("Emperical Distribution of Unsupervised = ", emp_distb_u)
-        # print("Pseudo_Original Shape = ", pseudo_orig.shape) # torch.Size([11163, 10]) # This is fine
-        # print("Pseudo Refined Shape = ", pseudo_refine.shape) # torch.Size([11163, 10]) # This is fine
+        # dojoStats = dojoTest(dataLoaders, num_class, ema_model, criterion, use_cuda)
 
         print("\nFor Unlabeled Loss : ")
         class_weight_u = getClassWeights(distbLoss_dict["unlabeled"], weightLoss, epoch, args.darp, distb_dict, use_cuda)
@@ -289,7 +285,12 @@ def main():
         # Append logger file
         stats = [train_loss, train_loss_x, train_loss_u, train_acc_x, train_gm_x,\
             test_loss, test_acc, test_gm]
-        loggerDict = appendLogger(stats, dojoStats, distb_dict, loggerDict, printer=True)
+        loggerDict = appendLogger(stats, distb_dict, loggerDict, printer=True)
+
+        is_best = False
+        if test_acc > best_acc:
+            best_acc = test_acc
+            is_best = True
 
         # Save models
         save_checkpoint({
@@ -301,7 +302,7 @@ def main():
             'class_weight_u' : class_weight_u,
             'distribution' : distbLoss_dict,
             'weightLoss' : weightLoss,
-        }, epoch + 1, args.out)
+        }, epoch + 1, args.out, args.save_freq, is_best=is_best)
         test_accs.append(test_acc)
         test_gms.append(test_gm)
 
@@ -496,9 +497,9 @@ def validate(valloader, model, criterion, use_cuda, mode):
     end = time.time()
     bar = Bar(f'{mode}', max=len(valloader))
 
-    classwise_correct = torch.zeros(num_class)
-    classwise_num = torch.zeros(num_class)
-    section_acc = torch.zeros(3)
+    classwise_correct = torch.zeros(num_class).cuda()
+    classwise_num = torch.zeros(num_class).cuda()
+    section_acc = torch.zeros(3).cuda()
 
     with torch.no_grad():
         for batch_idx, (inputs, targets, _) in enumerate(valloader):
@@ -561,7 +562,7 @@ def validate(valloader, model, criterion, use_cuda, mode):
         else:
             GM *= (classwise_acc[i]) ** (1/num_class)
 
-    return (losses.avg, top1.avg, section_acc.numpy(), GM)
+    return (losses.avg, top1.avg, section_acc.cpu().numpy(), GM)
 
 def estimate_pseudo(q_y, saved_q):
     pseudo_labels = torch.zeros(len(saved_q), num_class)
@@ -610,32 +611,17 @@ def opt_solver(probs, target_distb, num_iter=args.iter_T, num_newton=30):
 
     return M
 
-# def make_imb_data(max_num, class_num, gamma):
-#     mu = np.power(1/gamma, 1/(class_num - 1))
-#     class_num_list = []
-#     for i in range(class_num):
-#         if i == (class_num - 1):
-#             class_num_list.append(int(max_num / gamma))
-#         else:
-#             class_num_list.append(int(max_num * np.power(mu, i)))
-#     print(class_num_list)
-#     return list(class_num_list)
 
-def save_checkpoint(state, epoch, checkpoint=args.out, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, epoch, save_path, save_freq, is_best=False):
     
-    if int(epoch / 100) > 1 :
-        new_filename = str(epoch) + "_" + filename
-        file_loc = "checkpoints/" + new_filename
-        filepath = os.path.join(checkpoint, file_loc)
-        torch.save(state, filepath)
-        print("Saved Epoch at: ", filepath)
-
-    # Original Code
-    filepath = os.path.join(checkpoint, filename)
-    torch.save(state, filepath)
-
-    if epoch % 100 == 0:
-        shutil.copyfile(filepath, os.path.join(checkpoint, 'model_' + str(epoch) + '.pth.tar'))
+    if epoch % save_freq == 0:
+        torch.save(state, os.path.join(save_path, f'checkpoint_{epoch}.pth'))
+    # save the best checkpoint
+    if is_best:
+        if os.path.isfile(os.path.join(save_path, 'best.pth')):
+            os.remove(os.path.join(save_path, 'best.pth'))
+        torch.save(state, os.path.join(save_path, 'best.pth'))
+        print(f'save best ckp')
 
 def linear_rampup(current, rampup_length=args.epochs):
     if rampup_length == 0:
@@ -650,28 +636,24 @@ class SemiLoss(object):
         WCE_x = CE_x * weights_x     # Weighted Cross-Entropy
         SCE_x = torch.sum(WCE_x, dim=1)     # Summed Cross-Entropy torch.Size([128])
         Lx = -torch.mean(SCE_x)     # Final Unsupervised Cross-Entropy Loss
-        # Lx = -torch.mean(torch.sum(F.log_softmax(outputs_x, dim=1) * targets_x, dim=1))
-
-        # Lu_orig = -torch.mean(torch.sum(F.log_softmax(outputs_u, dim=1) * targets_u, dim=1) * mask)
-        # print("\n Lu_orig = ", Lu_orig)
 
         CE_u = F.log_softmax(outputs_u, dim=1) * targets_u # Cross-Entropy Unsupervised, torch.Size([128, 10])
         WCE_u = CE_u * weights_u     # Weighted Cross-Entropy
         MCE_u = torch.sum(WCE_u, dim=1) * mask     # Masked Cross-Entropy based on Quality, torch.Size([128])
         Lu = -torch.mean(MCE_u)     # Final Unsupervised Cross-Entropy Loss
-        # print("\n Lu_mod = ", Lu)
 
         return Lx, Lu
 
+
 # Weighted Exponential Moving Average
 class WeightEMA(object):
-    def __init__(self, model, ema_model, lr,  alpha=0.999):
+    def __init__(self, model, ema_model, alpha=0.999):
         self.model = model
         self.ema_model = ema_model
         self.alpha = alpha
         self.params = list(model.state_dict().values())
         self.ema_params = list(ema_model.state_dict().values())
-        self.wd = 0.02 * lr
+        self.wd = 0.02 * args.lr
 
         for param, ema_param in zip(self.params, self.ema_params):
             param.data.copy_(ema_param.data)
@@ -679,28 +661,31 @@ class WeightEMA(object):
     def step(self):
         one_minus_alpha = 1.0 - self.alpha
         for param, ema_param in zip(self.params, self.ema_params):
+            ema_param = ema_param.float()
+            param = param.float()
             ema_param.mul_(self.alpha)
             ema_param.add_(param * one_minus_alpha)
             # customized weight decay
             param.mul_(1 - self.wd)
 
+def interleave_offsets(batch, nu):
+    groups = [batch // (nu + 1)] * (nu + 1)
+    for x in range(batch - sum(groups)):
+        groups[-x - 1] += 1
+    offsets = [0]
+    for g in groups:
+        offsets.append(offsets[-1] + g)
+    assert offsets[-1] == batch
+    return offsets
 
-def loadCheckpoint(path, model, ema_model, optimizer) :
-    out = os.path.dirname(path)
-    checkpoint = torch.load(path)
-    start_epoch = checkpoint['epoch']
-    model.load_state_dict(checkpoint['state_dict'])
-    ema_model.load_state_dict(checkpoint['ema_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    
-    # Weighted loss based on Class Distribution (for Unsupervised)
-    class_weight_x = checkpoint['class_weight_x']
-    class_weight_u = checkpoint['class_weight_u']
-    distbLoss_dict = checkpoint['distribution']
-    weightLoss = checkpoint['weightLoss']
+def interleave(xy, batch):
+    nu = len(xy) - 1
+    offsets = interleave_offsets(batch, nu)
+    xy = [[v[offsets[p]:offsets[p + 1]] for p in range(nu + 1)] for v in xy]
+    for i in range(1, nu + 1):
+        xy[0][i], xy[i][i] = xy[i][i], xy[0][i]
+    return [torch.cat(v, dim=0) for v in xy]
 
-    return out, start_epoch, model, ema_model, optimizer, \
-        class_weight_x, class_weight_u, distbLoss_dict, weightLoss
 
 def printSettings(start_epoch, distbLoss_dict, weightLoss) :
     print("Starting Epoch: ", start_epoch)
@@ -708,41 +693,6 @@ def printSettings(start_epoch, distbLoss_dict, weightLoss) :
     print("Class Distribution: ", distbLoss_dict)
     print("Weighting Formula:  ", weightLoss)
 
-
-# def prepareDataLoaders(datasets) :
-#     dataLoaders = {}
-#     dataLoaders["labeled"] = data.DataLoader(datasets["labeled"], batch_size=args.batch_size, shuffle=True, num_workers=4,
-#                                           drop_last=True)
-
-#     dataLoaders["unlabeled"] = data.DataLoader(datasets["unlabeled"], batch_size=args.batch_size, shuffle=True, num_workers=4,
-#                                             drop_last=True)
-#     dataLoaders["Test"] = data.DataLoader(datasets["Test"], batch_size=args.batch_size, shuffle=False, num_workers=4)
-#     dataLoaders["Imbalanced"] = data.DataLoader(datasets["Imbalanced"], batch_size=args.batch_size, shuffle=False, num_workers=4)
-#     dataLoaders["Reversed"] = data.DataLoader(datasets["Reversed"], batch_size=args.batch_size, shuffle=False, num_workers=4)
-#     dataLoaders["Weak"] = data.DataLoader(datasets["Weak"], batch_size=args.batch_size, shuffle=False, num_workers=4)
-#     dataLoaders["Strong"] = data.DataLoader(datasets["Strong"], batch_size=args.batch_size, shuffle=False, num_workers=4)
-
-#     return dataLoaders
-
-def dojoTest(dataLoaders, ema_model, criterion, use_cuda) :
-    '''
-    For Robust Testing (like in Dojo Trainings)
-    '''
-    imb_test_loss, imb_test_acc, imb_test_cls, \
-            imb_test_gm = validate(dataLoaders["Imbalanced"], ema_model, criterion, use_cuda, mode='Imbalanced Test Stats ')
-    rev_test_loss, rev_test_acc, rev_test_cls, \
-        rev_test_gm = validate(dataLoaders["Reversed"], ema_model, criterion, use_cuda, mode='Reversed Imbalanced Test Stats ')
-    weak_test_loss, weak_test_acc, weak_test_cls, \
-        weak_test_gm = validate(dataLoaders["Weak"], ema_model, criterion, use_cuda, mode='Weakly Augmented Balanced Test Stats ')
-    strong_test_loss, strong_test_acc, strong_test_cls, \
-        strong_test_gm = validate(dataLoaders["Strong"], ema_model, criterion, use_cuda, mode='Strongly Augmented Balanced Test Stats ')
-
-    dojoStats = [imb_test_loss, imb_test_acc, imb_test_gm, \
-        rev_test_loss, rev_test_acc, rev_test_gm, \
-            weak_test_loss, weak_test_acc, weak_test_gm, \
-                strong_test_loss, strong_test_acc, strong_test_gm]
-
-    return dojoStats
 
 if __name__ == '__main__':
     main()

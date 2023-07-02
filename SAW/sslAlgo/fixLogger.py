@@ -56,7 +56,7 @@ def loadLogger(path, title="") :
 
     return loggerDict
 
-def appendLogger(stats, dojoStats, distb_dict, loggerDict, printer=False) :
+def appendLogger(stats, distb_dict, loggerDict, printer=False) :
     # torch -> list
     # pseudo_distb_u = distb_dict["pseudo"].cpu().detach().tolist()
     # pseudo_distb_u = [int(p) for p in pseudo_distb_u]
@@ -86,7 +86,6 @@ def appendLogger(stats, dojoStats, distb_dict, loggerDict, printer=False) :
         loggerDict[distbType].append(distb_u)
 
     loggerDict["logger"].append(stats)
-    loggerDict["dojo"].append(dojoStats)
     # loggerDict["pseudo"].append(pseudo_distb_u)
     # loggerDict["darp"].append(darp_distb_u)
     # loggerDict["weak"].append(weak_distb_u)
