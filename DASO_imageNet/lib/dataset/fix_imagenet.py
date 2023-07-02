@@ -118,6 +118,7 @@ class ImageNetLT(Dataset):
         self.transform = transform
         self.num_classes = 1000
         self.train = train
+        self.num_samples_per_class = self._load_num_samples_per_class()
 
     def __len__(self):
         return len(self.targets)
