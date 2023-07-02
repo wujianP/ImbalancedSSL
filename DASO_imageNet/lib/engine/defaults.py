@@ -104,6 +104,10 @@ def _get_experiment_name(cfg: CfgNode, seed: int) -> str:
         data_cfg = cfg.DATASET.CIFAR100
     elif dataset_name == "stl10":
         data_cfg = cfg.DATASET.STL10
+    elif dataset_name == 'imagenetLT':
+        data_cfg = cfg.DATASET.IMAGENETLT
+    elif dataset_name == 'imagenet127':
+        data_cfg = cfg.DATASET.IMAGENET127
     else:
         raise ValueError
 
