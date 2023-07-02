@@ -41,8 +41,6 @@ def cross_entropy(
     Returns:
         torch.Tensor: The calculated loss
     """
-    from IPython import embed
-    embed()
     if label.ndim > 1:
         # logits as prediction and one hot labels
         assert pred.ndim == label.ndim
