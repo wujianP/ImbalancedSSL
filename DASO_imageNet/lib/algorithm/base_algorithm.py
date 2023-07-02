@@ -88,7 +88,7 @@ class BaseAlgorithm(BaseTrainer):
             # eval period
             if ((self.iter + 1) % self.cfg.PERIODS.EVAL == 0):
                 self.evaluate(self.model)
-                self.dist_logger.write()
+                # self.dist_logger.write()
 
             # periodically save checkpoints
             if (
