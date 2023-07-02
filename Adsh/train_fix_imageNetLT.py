@@ -113,7 +113,7 @@ def update_s(args, score, unlabel_loader, model):
         lists = [[] for _ in range(args.num_classes)]
         for batch_idx, ((inputs_uw, inputs_us), _) in enumerate(unlabel_loader):
             model.eval()
-            inputs_uw = inputs_uw.to(args.device)
+            inputs_uw = inputs_uw.cuda()
             outputs = model(inputs_uw)[0]
             logits = torch.softmax(outputs.detach(), dim=1)
             max_probs, targets_u = torch.max(logits, dim=1)
@@ -203,7 +203,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
             logits = model(inputs_l)[0]
             cls_loss = F.cross_entropy(logits, targets)
             if args.alg == 'supervised':
-                ssl_loss = torch.zeros(1).to(args.device)
+                ssl_loss = torch.zeros(1).cuda()
             elif args.alg == 'adsh':
                 ssl_loss = ssl_obj(inputs_u[0], inputs_u[1], model, score)
             elif args.alg == 'FM':

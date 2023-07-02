@@ -8,6 +8,7 @@ cd /discobox/wjpeng/code/ImbalancedSSL/Adsh
 python train_fix_imageNetLT.py \
 --labeled_ratio 20 \
 --gpu-id 2 \
+--gpu 2 \
 --manualSeed 0 \
 --al adsh \
 --mu 1 \
