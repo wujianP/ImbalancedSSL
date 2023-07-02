@@ -1,0 +1,33 @@
+ALGORITHM:
+  NAME: "DASO"
+  CONFIDENCE_THRESHOLD: 0.7
+  DASO:
+    WITH_DIST_AWARE: True
+    # DIST_TEMP=1.5 if \gamma_l==\gamma_u else 0.3 for CIFAR10.
+    DIST_TEMP: 1.5
+    # blend pseudo-labels with fixed weight (applied only when WITH_DIST_AWARE is False).
+    INTERP_ALPHA: 0.5
+    PSA_LOSS_WEIGHT: 1.0  # loss weight for semantic alignment loss
+  ABC:
+    APPLY: False
+    DASO_PSEUDO_LABEL: True  # when abc is applied, apply DASO on pseudo-labels in abc pipeline
+
+MODEL:
+  LOSS:
+    UNLABELED_LOSS: "CrossEntropyLoss"
+    UNLABELED_LOSS_WEIGHT: 1.0
+
+DATASET:
+  BUILDER: "build_imagenetLT_dataset"
+  NAME: "imagenetLT"
+  ROOT: "./data/cifar10"
+  NUM_VALID: 5000
+  REVERSE_UL_DISTRIBUTION: False
+
+  TRANSFORM:
+    STRONG_AUG: True
+
+SOLVER:
+  UNLABELED_BATCH_RATIO: 1
+
+OUTPUT_DIR: "outputs/cifar10/fixmatch"

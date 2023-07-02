@@ -13,7 +13,7 @@ python train_fix_imageNetLT.py \
 --al adsh \
 --mu 1 \
 --total_steps 150000 \
---eval_steps 5 \
+--eval_steps 500 \
 --out $FOLDERDIR \
 --data_path $DATA_PATH \
 --annotation_file_path $ANN_PATH \
