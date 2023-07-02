@@ -81,7 +81,6 @@ torch.manual_seed(args.manualSeed)
 torch.backends.cudnn.benchmark = True
 torch.cuda.manual_seed_all(args.manualSeed)
 
-best_acc = 0  # best test accuracy
 
 
 def save_checkpoint(state, epoch, save_path, save_freq, is_best):
@@ -176,6 +175,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
     unlabeled_iter = iter(unlabel_loader)
     score = np.zeros(args.num_classes) + args.threshold
 
+    best_acc = 0
     for epoch in range(args.start_epoch, args.epochs):
         if args.alg == 'adsh' and epoch > 1:
             score = update_s(args, score, unlabel_loader, model)
@@ -243,6 +243,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
         if test_acc > best_acc:
             best_acc = test_acc
             is_best = True
+            print(f'BEST:!!!!!!!!!!!!!{best_acc}')
 
         result_logger.append([0, 0, 0, 0, test_loss, test_acc])
 
@@ -305,7 +306,6 @@ def test(args, test_loader, model):
 
 
 def main():
-    global best_acc
     from utils.logger import Logger
     result_logger = Logger(os.path.join(args.out, 'result_log.txt'), title='fix-ImageNet-LT')
     result_logger.set_names(
