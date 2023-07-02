@@ -1,12 +1,12 @@
 conda activate /discobox/wjpeng/env/bmb/
-FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/imagenetLT/SAW_20per'
+FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/imagenetLT/SAW_50per'
 DATA_PATH='/dev/shm/imagenet'
 ANN_PATH='/discobox/wjpeng/code/img127-tcp/dataset/ImageNet_LT'
 mkdir $FOLDERDIR
 cd /discobox/wjpeng/code/ImbalancedSSL/SAW
 python train_fix_imageNetLT.py \
---gpu 0 \
---labeled_ratio 20 \
+--gpu 1 \
+--labeled_ratio 50 \
 --epochs 300 \
 --start-epoch 0 \
 --batch-size 64 \
