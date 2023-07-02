@@ -3,11 +3,12 @@ from __future__ import print_function
 
 import argparse
 import os
+
 import shutil
 import time
 import random
 import numpy as np
-from ABC.models import wideresnetwithABC as models
+from models import wideresnetwithABC as models
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -16,6 +17,7 @@ import torch.optim as optim
 import torch.utils.data as data
 import torch.nn.functional as F
 from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p
+
 
 parser = argparse.ArgumentParser(description='PyTorch fixMatch Training')
 # Optimization options
@@ -38,7 +40,9 @@ parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
 parser.add_argument('--gpu', default='0', type=str,
                     help='id(s) for CUDA_VISIBLE_DEVICES')
 # Method options
-parser.add_argument('--num_max', type=int, default=1500,
+parser.add_argument('--num_max_l', type=int, default=1500,
+                        help='Number of samples in the maximal class')
+parser.add_argument('--num_max_u', type=int, default=3000,
                         help='Number of samples in the maximal class')
 parser.add_argument('--label_ratio', type=float, default=20, help='percentage of labeled data')
 parser.add_argument('--imb_ratio', type=int, default=100, help='Imbalance ratio')
@@ -86,8 +90,10 @@ def main():
     if not os.path.isdir(args.out):
         mkdir_p(args.out)
 
-    N_SAMPLES_PER_CLASS = make_imb_data(args.num_max, num_class, args.imb_ratio,args.imbalancetype)
-    U_SAMPLES_PER_CLASS = make_imb_data((100-args.label_ratio)/args.label_ratio * args.num_max, num_class, args.imb_ratio,args.imbalancetype)
+    N_SAMPLES_PER_CLASS = make_imb_data(args.num_max_l, num_class, args.imb_ratio, args.imbalancetype)
+    U_SAMPLES_PER_CLASS = make_imb_data(args.num_max_u, num_class, args.imb_ratio, args.imbalancetype)
+    print(N_SAMPLES_PER_CLASS)
+    print(U_SAMPLES_PER_CLASS)
     ir2=N_SAMPLES_PER_CLASS[-1]/np.array(N_SAMPLES_PER_CLASS)
     if args.dataset == 'cifar10':
         train_labeled_set, train_unlabeled_set,test_set = dataset.get_cifar10('./data', N_SAMPLES_PER_CLASS,U_SAMPLES_PER_CLASS)
@@ -172,7 +178,7 @@ def main():
                 'state_dict': model.state_dict(),
                 'ema_state_dict': ema_model.state_dict(),
 
-                'optimizer' : optimizer.state_dict(),
+                'optimizer': optimizer.state_dict(),
             }, epoch + 1)
 
     logger.close()

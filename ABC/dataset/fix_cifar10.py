@@ -64,7 +64,7 @@ def train_split(labels, n_labeled_per_class, n_unlabeled_per_class):
     for i in range(10):
         idxs = np.where(labels == i)[0]
         train_labeled_idxs.extend(idxs[:n_labeled_per_class[i]])
-        train_unlabeled_idxs.extend(idxs[n_labeled_per_class[i]:n_labeled_per_class[i] + n_unlabeled_per_class[i]])
+        train_unlabeled_idxs.extend(idxs[:n_labeled_per_class[i] + n_unlabeled_per_class[i]])
     return train_labeled_idxs, train_unlabeled_idxs
 
 class CIFAR10_labeled(torchvision.datasets.CIFAR10):
