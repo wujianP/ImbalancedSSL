@@ -5,6 +5,7 @@ cd /discobox/wjpeng/code/ImbalancedSSL/Adsh
 
 python train_fix_cifar10.py \
 --gpu-id 1 \
+--gpu 1 \
 --manualSeed 0 \
 --al adsh \
 --dataset cifar10 \
