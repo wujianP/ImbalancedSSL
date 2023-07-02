@@ -99,7 +99,8 @@ def build_imagenet_dataset(root,
     train_unlabeled_dataset = ImageNetLT(path_list=unlabeled_path,
                                          label_list=unlabeled_labels,
                                          transform=TransformTwice(transform_weak, transform_strong),
-                                         train=True)
+                                         train=True,
+                                         is_unknown=True)
     val_dataset = ImageNetLT(path_list=val_path,
                              label_list=val_labels,
                              transform=transform_val,
@@ -112,12 +113,13 @@ def build_imagenet_dataset(root,
 
 
 class ImageNetLT(Dataset):
-    def __init__(self, path_list, label_list, transform=None, train=True):
+    def __init__(self, path_list, label_list, transform=None, train=True, is_unknown=False):
         self.path_list = path_list
         self.targets = label_list
         self.transform = transform
         self.num_classes = 1000
         self.train = train
+        self.is_unknown = is_unknown
         self.num_samples_per_class = self._load_num_samples_per_class()
 
     def __len__(self):
@@ -125,7 +127,7 @@ class ImageNetLT(Dataset):
 
     def __getitem__(self, index):
         path = self.path_list[index]
-        label = self.targets[index]
+        label = -1 if self.is_unknown else self.targets[index]
 
         with open(path, 'rb') as f:
             sample = Image.open(f).convert('RGB')
