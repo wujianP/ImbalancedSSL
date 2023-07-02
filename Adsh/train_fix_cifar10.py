@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 parser = argparse.ArgumentParser(description='Pytorch SSL Library')
 parser.add_argument('--gpu-id', default='0', type=int,
                     help='id(s) for CUDA_VISIBE_DEVICES')
+parser.add_argument('--gpu', default='0', type=str,
+                    help='id(s) for CUDA_VISIBE_DEVICES')
 parser.add_argument('--alg', default='FM', type=str,
                     choices=['supervised', 'FM', 'adsh'],help='algorithms')
 parser.add_argument('--num-workers', type=int, default=4,
@@ -81,6 +83,8 @@ parser.add_argument('--resume', default='', type=str,
 parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
 
 args = parser.parse_args()
+
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
 if args.manualSeed is None:
     args.manualSeed = random.randint(1, 10000)
