@@ -9,7 +9,7 @@ cd /discobox/wjpeng/code/ImbalancedSSL/DASO_imageNet
 python main.py \
 --config-file configs/fixmatch_daso_imagenetLT.yaml \
 DATASET.LABELED_RATIO 20 \
-DATASET.NAME imagenetLT \
+DATASET.NAME cifar10 \
 GPU_ID 5 \
 SOLVER.MAX_ITER 15000 \
 PERIODS.EVAL 500 \
