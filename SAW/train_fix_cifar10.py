@@ -263,7 +263,7 @@ def main():
         # Evaluation part
         ___, train_acc_x, ___, train_gm_x = validate(dataLoaders["labeled"], ema_model, criterion, use_cuda, mode='Train Stats')
         test_loss, test_acc, test_cls, test_gm = validate(dataLoaders["Test"], ema_model, criterion, use_cuda, mode='Test Stats ')
-        dojoStats = dojoTest(dataLoaders, num_class, ema_model, criterion, use_cuda)
+        # dojoStats = dojoTest(dataLoaders, num_class, ema_model, criterion, use_cuda)
 
         # Use Pseudo_orig as the Class Distribution (Take Note of this!!!)
         # Note: Pseudo_refine is used for DARP (if Not, do not need)
@@ -286,7 +286,7 @@ def main():
         # Append logger file
         stats = [train_loss, train_loss_x, train_loss_u, train_acc_x, train_gm_x,\
             test_loss, test_acc, test_gm]
-        loggerDict = appendLogger(stats, dojoStats, distb_dict, loggerDict)
+        loggerDict = appendLogger(stats, distb_dict, loggerDict, printer=True)
 
         # Save models
         save_checkpoint({
