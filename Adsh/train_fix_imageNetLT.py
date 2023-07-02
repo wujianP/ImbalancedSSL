@@ -194,8 +194,8 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
 
             data_time.update(time.time() - end)
 
-            inputs_l = inputs_l.to(args.device)
-            targets = targets.to(args.device).long()
+            inputs_l = inputs_l.cuda()
+            targets = targets.cuda().long()
 
             logits = model(inputs_l)[0]
             cls_loss = F.cross_entropy(logits, targets)
