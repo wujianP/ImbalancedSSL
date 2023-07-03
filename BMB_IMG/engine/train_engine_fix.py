@@ -266,7 +266,7 @@ class TrainEngine(object):
 
             tcp_feats, _, _ = self.model(tcp_imgs)
             tcp_feats = tcp_feats.detach()
-            tcp_logits_abc = self.model.fc_abc(tcp_feats)
+            tcp_logits_abc = self.model.module.fc_abc(tcp_feats)
             tcp_labels = label2onehot(tcp_get_labels, tcp_get_num, self.num_class)
             loss_tcp = -torch.mean(torch.sum(F.log_softmax(tcp_logits_abc, dim=1) * tcp_labels, dim=1))
 
