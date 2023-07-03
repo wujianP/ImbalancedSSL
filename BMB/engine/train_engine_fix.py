@@ -200,12 +200,13 @@ class TrainEngine(object):
             iter_time = time.time() - end
             gpu_mem = torch.cuda.memory_allocated() / 1024 / 1024
             # mis log
-            self.mis_logger.info(
-                "{time_per_iter:.3f}, {get_num_per_iter:>3d}, {gpu_mem:4.2f}(MiB)",
-                time_per_iter=iter_time,
-                get_num_per_iter=tcp_get_num,
-                gpu_mem=gpu_mem
-            )
+            if self.mis_logger:
+                self.mis_logger.info(
+                    "{time_per_iter:.3f}, {get_num_per_iter:>3d}, {gpu_mem:4.2f}(MiB)",
+                    time_per_iter=iter_time,
+                    get_num_per_iter=tcp_get_num,
+                    gpu_mem=gpu_mem
+                )
 
             # log loss and pseudo statistics to tensorboard
             if self.log_writer:

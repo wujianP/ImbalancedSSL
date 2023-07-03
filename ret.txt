@@ -2,9 +2,11 @@ conda activate /discobox/wjpeng/env/bmb/
 
 cd '/discobox/wjpeng/code/ImbalancedSSL/BMB'
 DATA='/dev/shm'
-OUT='/discobox/wjpeng/ckp/BMB/rebuttal/complexity/cifar10_w_memory'
-python -m torch.distributed.launch --nproc_per_node=1 --master_port 29500 ABCfix.py \
- --gpu 0 \
+OUT='/discobox/wjpeng/ckp/BMB/rebuttal/base-classifier/cifar10_wo_base'
+
+python -m torch.distributed.launch --nproc_per_node=1 --master_port 29507 ABCfix.py \
+ --gpu 7 \
+ --disable_backbone \
  --tcp_strong \
  --tcp_refresh_after_warm \
  --tcp_pool_size 128 \
