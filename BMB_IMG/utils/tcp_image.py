@@ -13,6 +13,7 @@ class TailClassPool_Image(object):
 
         self.index_pool = torch.ones(self.pool_size) * -1
         self.label_pool = torch.ones(self.pool_size) * -1
+        self.gt_pool = torch.ones(self.pool_size) * -1
 
     @torch.no_grad()
     def put_samples(self, class_distribution, input_features, input_labels, gt_labels, input_indice):
@@ -61,6 +62,7 @@ class TailClassPool_Image(object):
             # 空位足够，直接加入
             self.label_pool[self.sample_num:self.sample_num + put_num] = put_labels
             self.index_pool[self.sample_num:self.sample_num + put_num] = put_indice
+            self.gt_pool[self.sample_num:self.sample_num + put_num] = put_gt
             self.sample_num += put_num
             remove_num = 0
             remove_labels = None
@@ -86,6 +88,7 @@ class TailClassPool_Image(object):
             insert_idx = torch.cat([empty_idx.cuda(), remove_idx.cuda()])  # 新样本插入的位置index
             self.label_pool[insert_idx.long()] = put_labels.float().cpu()
             self.index_pool[insert_idx.long()] = put_indice.float().cpu()
+            self.gt_pool[insert_idx.long()] = put_gt.float().cpu()
             self.sample_num = self.sample_num - remove_num + put_num
         return remove_num, remove_labels
 
@@ -116,8 +119,9 @@ class TailClassPool_Image(object):
 
         get_indice = self.index_pool[get_idx]
         get_labels = self.label_pool[get_idx]
+        get_gts = self.gt_pool[get_idx]
 
-        return get_indice, get_labels, get_num
+        return get_indice, get_labels, get_gts, get_num
 
     @torch.no_grad()
     def all_gather_obj_put_sample(self, feats, labels):

@@ -132,8 +132,8 @@ class TrainEngine(object):
                 else:
                     tcp_feats = feats_U_weak
                     tcp_labels = soft_pseudo_abc
-                    tcp_gt = targets_L
-                    tcp_indice = indice_L
+                    tcp_gt = targets_U
+                    tcp_indice = indice_U
 
                 loss_tcp = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
                                             input_gt=tcp_gt, indice=tcp_indice)
@@ -224,8 +224,9 @@ class TrainEngine(object):
             soft_pseudo_gathered = concat_all_gather(soft_pseudo)
             input_features_gathered = concat_all_gather(input_features)
             indice_gathered = concat_all_gather(indice)
+            input_gt_gathered = concat_all_gather(indice)
         else:
-            soft_pseudo_gathered, input_features_gathered, indice_gathered = soft_pseudo, input_features, indice
+            soft_pseudo_gathered, input_features_gathered, indice_gathered, input_gt_gathered = soft_pseudo, input_features, indice, input_gt
 
         max_probs, hard_labels = torch.max(soft_pseudo_gathered, dim=1)
 
@@ -233,7 +234,7 @@ class TrainEngine(object):
         input_idx = torch.where(pass_threshold == 1)  # 超过threshold的样本的坐标
         input_feat = input_features_gathered[input_idx]
         input_labels = hard_labels[input_idx]
-        input_gt = input_gt[input_idx]
+        input_gt = input_gt_gathered[input_idx]
         input_indice = indice_gathered[input_idx]
 
         remove_num, remove_labels = self.tcp.put_samples(class_distribution=distribution, input_features=input_feat,
@@ -246,7 +247,7 @@ class TrainEngine(object):
         else:
             get_num = self.args.tcp_get_num
 
-        tcp_get_indice, tcp_get_labels, tcp_get_num = self.tcp.get_samples(get_num=get_num, class_distribution=distribution)
+        tcp_get_indice, tcp_get_labels, tcp_get_gts, tcp_get_num = self.tcp.get_samples(get_num=get_num, class_distribution=distribution)
 
         # log TCP data into Tensorboard
         if self.log_writer and (self.log_writer.step % self.args.writer_log_iter_freq == 0):
@@ -259,20 +260,24 @@ class TrainEngine(object):
         if tcp_get_num > 0:
             # 根据indice加载图片和标签
             tcp_set = Subset(self.unlabeled_loader.dataset, tcp_get_indice.int().tolist())
-            tcp_loader = DataLoader(tcp_set, batch_size=len(tcp_set))
+            tcp_loader = DataLoader(tcp_set, batch_size=len(tcp_set), shuffle=False)
 
             if self.args.tcp_store_img_strong:
-                (_, tcp_imgs, _), tcp_labels, _ = iter(tcp_loader).next()
+                (_, tcp_imgs, _), gt_labels, _ = iter(tcp_loader).next()
             else:
-                (tcp_imgs, _, _), tcp_labels, _ = iter(tcp_loader).next()
+                (tcp_imgs, _, _), gt_labels, _ = iter(tcp_loader).next()
 
-            tcp_imgs, tcp_labels = tcp_imgs.cuda(), tcp_labels.cuda()
+            from IPython import embed
+            embed()
+
+            tcp_imgs, tcp_get_labels = tcp_imgs.cuda(), tcp_get_labels.cuda()
 
             tcp_feats = self.model.module.extract_feature(tcp_imgs)
-            tcp_feats = tcp_feats.detach()
+            # tcp_feats = tcp_feats.detach()
             tcp_logits_abc = self.model.module.fc_abc(tcp_feats)
-            tcp_labels = label2onehot(tcp_get_labels, tcp_get_num, self.num_class)
-            loss_tcp = -torch.mean(torch.sum(F.log_softmax(tcp_logits_abc, dim=1) * tcp_labels, dim=1))
+
+            tcp_get_labels = label2onehot(tcp_get_labels, tcp_get_num, self.num_class)
+            loss_tcp = -torch.mean(torch.sum(F.log_softmax(tcp_logits_abc, dim=1) * tcp_get_labels, dim=1))
 
         else:
             loss_tcp = torch.zeros(1).cuda()
