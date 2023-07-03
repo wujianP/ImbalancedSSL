@@ -7,6 +7,7 @@ import torch.nn.functional as F
 sys.path.append('../')
 from utils import *
 from tqdm import tqdm
+from torch.utils.data import Subset, DataLoader
 
 
 class TrainEngine(object):
@@ -31,15 +32,15 @@ class TrainEngine(object):
         self.tcp_acc_logger = tcp_acc_logger
         self.tcp_get_num_logger = tcp_get_num_logger
         self.pseudo_distribution_meters = init_pd_distribution_meters(dim=num_class)
-        if self.args.tcp_img_store_data:
-            self.tcp = TailClassPool_Data(args=args, log_writer=log_writer, mode='U')
-        elif self.args.tcp_img_store_index:
-            self.tcp = TailClassPool_Index(args=args, log_writer=log_writer, mode='U')
+        if self.args.tcp_store_img:
+            self.tcp = TailClassPool_Image(args=args, log_writer=log_writer, mode='U')
         else:
-            self.tcp = TailClassPool(args=args, log_writer=log_writer, mode='U', num_logger=self.tcp_num_logger,
-                                     acc_logger=self.tcp_acc_logger, get_logger=self.tcp_get_num_logger)
+            raise KeyError
+            # self.tcp = TailClassPool(args=args, log_writer=log_writer, mode='U', num_logger=self.tcp_num_logger,
+            #                          acc_logger=self.tcp_acc_logger, get_logger=self.tcp_get_num_logger)
         if tcp_state_dict and tcp_resume:
-            self.tcp.load_state_dict(state_dict=tcp_state_dict)
+            raise KeyError
+            # self.tcp.load_state_dict(state_dict=tcp_state_dict)
 
     def train_one_epoch_fix(self, epoch):
 
@@ -49,7 +50,10 @@ class TrainEngine(object):
         if epoch == self.args.warmup_epochs:
             self.pseudo_distribution_meters = init_pd_distribution_meters(dim=self.num_class)
             if self.args.tcp_refresh_after_warm:
-                self.tcp = TailClassPool(args=self.args, log_writer=self.log_writer, mode='U', num_logger=self.tcp_num_logger, acc_logger=self.tcp_acc_logger, get_logger=self.tcp_get_num_logger)
+                if self.args.tcp_store_img:
+                    self.tcp = TailClassPool_Image(args=self.args, log_writer=self.log_writer, mode='U')
+                else:
+                    self.tcp = TailClassPool(args=self.args, log_writer=self.log_writer, mode='U', num_logger=self.tcp_num_logger, acc_logger=self.tcp_acc_logger, get_logger=self.tcp_get_num_logger)
 
         per_epoch_meters = init_average_meters(dim=self.num_class)
 
@@ -63,8 +67,8 @@ class TrainEngine(object):
             batch_data = self.get_batch_data(to_cuda=True)
             per_epoch_meters['data_time'].update(time.time() - end)
 
-            imgs_L, targets_L = batch_data['labeled']
-            imgs_U_weak, imgs_U_strong1, imgs_U_strong2, targets_U = batch_data['unlabeled']
+            imgs_L, targets_L, indice_L = batch_data['labeled']
+            imgs_U_weak, imgs_U_strong1, imgs_U_strong2, targets_U, indice_U = batch_data['unlabeled']
 
             batch_size_L, batch_size_U = imgs_L.size(0), imgs_U_weak.size(0)
 
@@ -117,45 +121,20 @@ class TrainEngine(object):
                     soft_pseudo_strong1 = torch.softmax(logits_strong1_abc, dim=1).detach()
                     soft_pseudo_strong2 = torch.softmax(logits_strong2_abc, dim=1).detach()
 
-                if self.args.tcp_ablate_feat:
-                    # ablate studies
-                    if self.args.tcp_use_weak:
-                        tcp_feats = feats_U_weak
-                        tcp_gt = targets_L
-                        if self.args.tcp_cross_pd:
-                            tcp_labels = soft_pseudo_strong1
-                        else:
-                            tcp_labels = soft_pseudo_abc
-                    elif self.args.tcp_use_strong:
-                        tcp_feats = torch.cat([feats_U_strong1, feats_U_strong2], dim=0)
-                        tcp_gt = torch.cat([targets_U, targets_U], dim=0)
-                        if self.args.tcp_cross_pd:
-                            tcp_labels = torch.cat([soft_pseudo_abc, soft_pseudo_abc], dim=0)
-                        else:
-                            tcp_labels = torch.cat([soft_pseudo_strong1, soft_pseudo_strong2], dim=0)
-                    elif self.args.tcp_use_weak_strong:
-                        tcp_feats = torch.cat([feats_U_weak, feats_U_strong1, feats_U_strong2], dim=0)
-                        tcp_gt = torch.cat([targets_L, targets_U, targets_U], dim=0)
-                        if self.args.tcp_cross_pd:
-                            tcp_labels = torch.cat([soft_pseudo_strong1, soft_pseudo_abc, soft_pseudo_abc], dim=0)
-                        else:
-                            tcp_labels = torch.cat([soft_pseudo_abc, soft_pseudo_strong1, soft_pseudo_strong2], dim=0)
-                    else:
-                        raise KeyError
-
+                if self.args.tcp_strong:
+                    # 使用strong伪标签 (Default)
+                    tcp_feats = torch.cat([feats_U_strong1, feats_U_strong2], dim=0)
+                    tcp_labels = torch.cat([soft_pseudo_strong1, soft_pseudo_strong2], dim=0)
+                    tcp_gt = torch.cat([targets_U, targets_U], dim=0)
+                    tcp_indice = torch.cat([indice_U, indice_U], dim=0)
                 else:
-                    # main experiments
-                    if self.args.tcp_strong:
-                        # 使用strong伪标签
-                        tcp_feats = torch.cat([feats_U_strong1, feats_U_strong2], dim=0)
-                        tcp_labels = torch.cat([soft_pseudo_strong1, soft_pseudo_strong2], dim=0)
-                        tcp_gt = torch.cat([targets_U, targets_U], dim=0)
-                    else:
-                        tcp_feats = feats_U_weak
-                        tcp_labels = soft_pseudo_abc
+                    tcp_feats = feats_U_weak
+                    tcp_labels = soft_pseudo_abc
+                    tcp_gt = targets_L
+                    tcp_indice = indice_L
 
                 loss_tcp = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
-                                            input_gt=tcp_gt)
+                                            input_gt=tcp_gt, indice=tcp_indice)
 
                 if self.args.tcp_separate_labeled:
                     loss_tcp_labeled = self.process_tcp_labeled(
@@ -220,7 +199,7 @@ class TrainEngine(object):
 
         return self.tcp.state_dict
 
-    def process_tcp(self, soft_pseudo, input_features, epoch, input_gt):
+    def process_tcp(self, soft_pseudo, input_features, epoch, input_gt, indice):
         # 使用TCP
         if self.args.tcp_distribution_type == 'pd_raw':
             num_per_class = self.pseudo_distribution_meters['raw_pseudo_num_per_class_abc']
@@ -247,8 +226,9 @@ class TrainEngine(object):
         if self.args.tcp_sync_input:
             soft_pseudo_gathered = concat_all_gather(soft_pseudo)
             input_features_gathered = concat_all_gather(input_features)
+            indice_gathered = concat_all_gather(indice)
         else:
-            soft_pseudo_gathered, input_features_gathered = soft_pseudo, input_features
+            soft_pseudo_gathered, input_features_gathered, indice_gathered = soft_pseudo, input_features, indice
 
         max_probs, hard_labels = torch.max(soft_pseudo_gathered, dim=1)
 
@@ -257,9 +237,11 @@ class TrainEngine(object):
         input_feat = input_features_gathered[input_idx]
         input_labels = hard_labels[input_idx]
         input_gt = input_gt[input_idx]
+        input_indice = indice_gathered[input_idx]
 
         remove_num, remove_labels = self.tcp.put_samples(class_distribution=distribution, input_features=input_feat,
-                                                         input_labels=input_labels, gt_labels=input_gt)
+                                                         input_labels=input_labels, gt_labels=input_gt,
+                                                         input_indice=input_indice)
 
         # anneal get-num
         if self.args.tcp_anneal_get_num:
@@ -267,84 +249,27 @@ class TrainEngine(object):
         else:
             get_num = self.args.tcp_get_num
 
-        tcp_features, tcp_labels, tcp_get_num = self.tcp.get_samples(get_num=get_num, class_distribution=distribution)
+        tcp_get_indice, tcp_get_labels, tcp_get_num = self.tcp.get_samples(get_num=get_num, class_distribution=distribution)
 
         # log TCP data into Tensorboard
         if self.log_writer and (self.log_writer.step % self.args.writer_log_iter_freq == 0):
             self.tcp.log_inpool_stat(num_class=self.num_class, epoch=epoch)
-            self.tcp.log_get_stat(num_class=self.num_class, get_labels=tcp_labels, get_num=tcp_get_num)
+            self.tcp.log_get_stat(num_class=self.num_class, get_labels=tcp_get_labels, get_num=tcp_get_num)
             if remove_num > 0:
                 self.tcp.log_remove_stat(num_class=self.num_class, remove_labels=remove_labels, remove_num=remove_num)
 
+        # calculate tcp loss
         if tcp_get_num > 0:
-            tcp_labels = label2onehot(tcp_labels, tcp_get_num, self.num_class)
-            tcp_logits = self.model.module.fc_abc(tcp_features)
-            loss_tcp = -torch.mean(torch.sum(F.log_softmax(tcp_logits, dim=1) * tcp_labels, dim=1))
-        else:
-            loss_tcp = torch.zeros(1).cuda()
+            # 根据indice加载图片和标签
+            tcp_set = Subset(self.unlabeled_loader.dataset, tcp_get_indice.tolist())
+            tcp_loader = DataLoader(tcp_set, batch_size=len(tcp_set))
+            tcp_imgs, _, _, tcp_labels, _ = iter(tcp_loader).next()
+            tcp_imgs, tcp_labels = tcp_imgs.cuda(), tcp_labels.cuda()
 
-        return loss_tcp
+            _, tcp_logits_abc, _ = self.model(tcp_imgs)
+            tcp_labels = label2onehot(tcp_get_labels, tcp_get_num, self.num_class)
+            loss_tcp = -torch.mean(torch.sum(F.log_softmax(tcp_logits_abc, dim=1) * tcp_labels, dim=1))
 
-    def process_tcp_labeled(self, soft_pseudo, input_features, epoch):
-        # 使用TCP
-        if self.args.tcp_distribution_type == 'pd_raw':
-            num_per_class = self.pseudo_distribution_meters['raw_pseudo_num_per_class_abc']
-        elif self.args.tcp_distribution_type == 'pd_select':
-            num_per_class = self.pseudo_distribution_meters['select_pseudo_num_per_class_abc']
-        elif self.args.tcp_distribution_type == 'gt':
-            num_per_class = self.sample_num_per_class['labeled']
-        else:
-            raise KeyError
-
-        # use every n epoch estimate
-        if self.args.pd_distribution_estimate_nepoch > 0 and self.args.tcp_distribution_type != 'gt':
-            distribution = num_per_class.avg
-        # use ema estimate
-        elif self.args.pd_stat_ema_momentum_wt > 0 and self.args.tcp_distribution_type != 'gt':
-            distribution = num_per_class.val
-        elif self.args.tcp_distribution_type == 'gt':
-            distribution = torch.tensor(num_per_class, dtype=torch.float64)
-        else:
-            raise KeyError
-
-        # 进程间进行同步，以保证input feature的多样性
-        # FIXME: 但是由于不同卡上进行不同的随机采用过程，实际上input，remove和get还是不同的
-        if self.args.tcp_sync_input:
-            soft_pseudo_gathered = concat_all_gather(soft_pseudo)
-            input_features_gathered = concat_all_gather(input_features)
-        else:
-            soft_pseudo_gathered, input_features_gathered = soft_pseudo, input_features
-
-        max_probs, hard_labels = torch.max(soft_pseudo_gathered, dim=1)
-
-        pass_threshold = max_probs.ge(self.args.tau)  # one means pass
-        input_idx = torch.where(pass_threshold == 1)  # 超过threshold的样本的坐标
-        input_feat = input_features_gathered[input_idx]
-        input_labels = hard_labels[input_idx]
-
-        remove_num, remove_labels = self.tcp_labeled.put_samples(class_distribution=distribution,
-                                                                 input_features=input_feat,
-                                                                 input_labels=input_labels)
-
-        # anneal get-num
-        if self.args.tcp_anneal_get_num:
-            get_num = int(self.args.tcp_get_num * (epoch / self.args.epochs))
-        else:
-            get_num = self.args.tcp_get_num
-
-        tcp_features, tcp_labels, tcp_get_num = self.tcp_labeled.get_samples(get_num=get_num, class_distribution=distribution)
-
-        # log TCP data into Tensorboard
-        if self.log_writer and (self.log_writer.step % self.args.writer_log_iter_freq == 0):
-            self.tcp_labeled.log_inpool_stat(num_class=self.num_class)
-            self.tcp_labeled.log_get_stat(num_class=self.num_class, get_labels=tcp_labels, get_num=tcp_get_num)
-            if remove_num > 0:
-                self.tcp_labeled.log_remove_stat(num_class=self.num_class, remove_labels=remove_labels, remove_num=remove_num)
-
-        if tcp_get_num > 0:
-            tcp_labels = label2onehot(tcp_labels, tcp_get_num, self.num_class)
-            tcp_logits = self.model.module.fc_abc(tcp_features)
-            loss_tcp = -torch.mean(torch.sum(F.log_softmax(tcp_logits, dim=1) * tcp_labels, dim=1))
         else:
             loss_tcp = torch.zeros(1).cuda()
 
@@ -468,15 +393,15 @@ class TrainEngine(object):
             if to_cuda = True, move data to GPU, else keep on CPU
         """
         try:
-            imgs_L, targets_L, _ = self.labeled_iter.next()
+            imgs_L, targets_L, indice_L = self.labeled_iter.next()
         except:
             self.labeled_iter = iter(self.labeled_loader)
-            imgs_L, targets_L, _ = self.labeled_iter.next()
+            imgs_L, targets_L, indice_L = self.labeled_iter.next()
         try:
-            (imgs_U_weak, imgs_U_strong1, imgs_U_strong2), targets_U, _ = self.unlabeled_iter.next()
+            (imgs_U_weak, imgs_U_strong1, imgs_U_strong2), targets_U, indice_U = self.unlabeled_iter.next()
         except:
             self.unlabeled_iter = iter(self.unlabeled_loader)
-            (imgs_U_weak, imgs_U_strong1, imgs_U_strong2), targets_U, _ = self.unlabeled_iter.next()
+            (imgs_U_weak, imgs_U_strong1, imgs_U_strong2), targets_U, indice_U = self.unlabeled_iter.next()
 
         if to_cuda:
             ret = {
@@ -485,8 +410,8 @@ class TrainEngine(object):
             }
         else:
             ret = {
-                'labeled': (imgs_L, targets_L),
-                'unlabeled': (imgs_U_weak, imgs_U_strong1, imgs_U_strong2, targets_U)
+                'labeled': (imgs_L, targets_L, indice_L),
+                'unlabeled': (imgs_U_weak, imgs_U_strong1, imgs_U_strong2, targets_U, indice_U)
             }
 
         return ret
