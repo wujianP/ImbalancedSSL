@@ -20,10 +20,10 @@ def main(args):
 
     # create logger
     if is_main_process():
-        log_writer, cfg_logger, train_logger, val_logger, tcp_num_logger, tcp_acc_logger, tcp_get_num_logger = create_logger(args, remove_console=False)
+        log_writer, cfg_logger, train_logger, val_logger, tcp_num_logger, tcp_acc_logger, tcp_get_num_logger, mis_logger = create_logger(args, remove_console=False)
         cfg_logger.info("==> hyperparameters:\n{}".format(args).replace(',', '\n'))
     else:
-        log_writer, cfg_logger, train_logger, val_logger, tcp_num_logger, tcp_acc_logger, tcp_get_num_logger = None, None, None, None, None, None, None
+        log_writer, cfg_logger, train_logger, val_logger, tcp_num_logger, tcp_acc_logger, tcp_get_num_logger, mis_logger = None, None, None, None, None, None, None, None
 
     # make output dir
     if not os.path.isdir(args.out) and is_main_process():
@@ -70,7 +70,8 @@ def main(args):
                                log_writer=log_writer, tcp_state_dict=tcp_state_dict,
                                tcp_num_logger=tcp_num_logger,
                                tcp_get_num_logger=tcp_get_num_logger,
-                               tcp_acc_logger=tcp_acc_logger)
+                               tcp_acc_logger=tcp_acc_logger,
+                               mis_logger=mis_logger)
 
     val_model = model if args.disable_ema_model else ema_model
     val_engine = ValEngine(args=args, val_loader=val_loader, model=val_model, criterion=val_criterion,

@@ -13,7 +13,7 @@ class TrainEngine(object):
     def __init__(self, args, labeled_loader=None, unlabeled_loader=None, model=None, tcp_resume=False,
                  optimizer=None, ema_optimizer=None, semi_loss: SemiLoss = None, tcp_state_dict=None,
                  sample_num_per_class=None, num_class=None, logger=None, log_writer=None, tcp_num_logger=None,
-                 tcp_acc_logger=None, tcp_get_num_logger=None):
+                 tcp_acc_logger=None, tcp_get_num_logger=None, mis_logger=None):
         self.args = args
         self.labeled_loader = labeled_loader
         self.unlabeled_loader = unlabeled_loader
@@ -31,12 +31,15 @@ class TrainEngine(object):
         self.tcp_acc_logger = tcp_acc_logger
         self.tcp_get_num_logger = tcp_get_num_logger
         self.pseudo_distribution_meters = init_pd_distribution_meters(dim=num_class)
-        self.tcp = TailClassPool(args=args, log_writer=log_writer, mode='U', num_logger=self.tcp_num_logger, acc_logger=self.tcp_acc_logger, get_logger=self.tcp_get_num_logger)
+        self.tcp = TailClassPool(args=args, log_writer=log_writer, mode='U', num_logger=self.tcp_num_logger,
+                                 acc_logger=self.tcp_acc_logger, get_logger=self.tcp_get_num_logger)
         if self.args.tcp_separate_labeled:
             # self.tcp_labeled = TailClassPool(args=args, log_writer=log_writer, mode='L')
             raise NotImplementedError
         if tcp_state_dict and tcp_resume:
             self.tcp.load_state_dict(state_dict=tcp_state_dict)
+
+        self.mis_logger = mis_logger
 
     def train_one_epoch_fix(self, epoch):
 
@@ -46,7 +49,9 @@ class TrainEngine(object):
         if epoch == self.args.warmup_epochs:
             self.pseudo_distribution_meters = init_pd_distribution_meters(dim=self.num_class)
             if self.args.tcp_refresh_after_warm:
-                self.tcp = TailClassPool(args=self.args, log_writer=self.log_writer, mode='U', num_logger=self.tcp_num_logger, acc_logger=self.tcp_acc_logger, get_logger=self.tcp_get_num_logger)
+                self.tcp = TailClassPool(args=self.args, log_writer=self.log_writer, mode='U',
+                                         num_logger=self.tcp_num_logger, acc_logger=self.tcp_acc_logger,
+                                         get_logger=self.tcp_get_num_logger)
 
         per_epoch_meters = init_average_meters(dim=self.num_class)
 
@@ -54,6 +59,8 @@ class TrainEngine(object):
         self.model.train()
         loop = tqdm(range(self.args.val_iteration), colour='blue', leave=False)
         for batch_idx, _ in enumerate(loop):
+
+            # 统计时间
             end = time.time()
 
             # get data
@@ -80,7 +87,8 @@ class TrainEngine(object):
             else:
                 loss_L_base, loss_U_base, soft_pseudo_base, mask_U_for_balance_base, mask_L_for_balance_base = self.compute_loss(
                     meters=self.pseudo_distribution_meters, logits_all=logits_base_all, batch_size_L=batch_size_L,
-                    batch_size_U=batch_size_U, targets_L=targets_L, mode='base', epoch=epoch, logits_abc_all=logits_abc_all)
+                    batch_size_U=batch_size_U, targets_L=targets_L, mode='base', epoch=epoch,
+                    logits_abc_all=logits_abc_all)
                 #  计算pseudo-label的统计信息
                 pseudo_stat_base = analysis_train_pseudo_labels(true_labels_U=targets_U, soft_pseudo_U=soft_pseudo_base,
                                                                 true_labels_L=targets_L,
@@ -107,6 +115,7 @@ class TrainEngine(object):
             if self.args.tcp_pool_size == 0:
                 loss_tcp = torch.zeros(1).cuda().detach()
                 loss_tcp_labeled = torch.zeros(1).cuda().detach()
+                tcp_get_num = 0
             else:
                 logits_strong1_abc = logits_abc_all[batch_size_L + batch_size_U:batch_size_L + batch_size_U * 2]
                 logits_strong2_abc = logits_abc_all[batch_size_L + batch_size_U * 2:]
@@ -151,8 +160,8 @@ class TrainEngine(object):
                         tcp_feats = feats_U_weak
                         tcp_labels = soft_pseudo_abc
 
-                loss_tcp = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
-                                            input_gt=tcp_gt)
+                loss_tcp, tcp_get_num = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
+                                                         input_gt=tcp_gt)
 
                 if self.args.tcp_separate_labeled:
                     loss_tcp_labeled = self.process_tcp_labeled(
@@ -188,6 +197,15 @@ class TrainEngine(object):
                 self.ema_optimizer.step()
 
             per_epoch_meters['batch_time'].update(time.time() - end - per_epoch_meters['data_time'].val)
+            iter_time = time.time() - end
+            gpu_mem = torch.cuda.memory_allocated() / 1024
+            # mis log
+            self.mis_logger.info(
+                "{time_per_iter:.3f}, {get_num_per_iter:>3d}, {gpu_mem:4.2f}(MiB)",
+                time_per_iter=iter_time,
+                get_num_per_iter=tcp_get_num,
+                gpu_mem=gpu_mem
+            )
 
             # log loss and pseudo statistics to tensorboard
             if self.log_writer:
@@ -280,7 +298,7 @@ class TrainEngine(object):
         else:
             loss_tcp = torch.zeros(1).cuda()
 
-        return loss_tcp
+        return loss_tcp, tcp_get_num
 
     def process_tcp_labeled(self, soft_pseudo, input_features, epoch):
         # 使用TCP
@@ -329,14 +347,16 @@ class TrainEngine(object):
         else:
             get_num = self.args.tcp_get_num
 
-        tcp_features, tcp_labels, tcp_get_num = self.tcp_labeled.get_samples(get_num=get_num, class_distribution=distribution)
+        tcp_features, tcp_labels, tcp_get_num = self.tcp_labeled.get_samples(get_num=get_num,
+                                                                             class_distribution=distribution)
 
         # log TCP data into Tensorboard
         if self.log_writer and (self.log_writer.step % self.args.writer_log_iter_freq == 0):
             self.tcp_labeled.log_inpool_stat(num_class=self.num_class)
             self.tcp_labeled.log_get_stat(num_class=self.num_class, get_labels=tcp_labels, get_num=tcp_get_num)
             if remove_num > 0:
-                self.tcp_labeled.log_remove_stat(num_class=self.num_class, remove_labels=remove_labels, remove_num=remove_num)
+                self.tcp_labeled.log_remove_stat(num_class=self.num_class, remove_labels=remove_labels,
+                                                 remove_num=remove_num)
 
         if tcp_get_num > 0:
             tcp_labels = label2onehot(tcp_labels, tcp_get_num, self.num_class)
