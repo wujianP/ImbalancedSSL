@@ -135,9 +135,8 @@ class TrainEngine(object):
                     tcp_gt = targets_L
                     tcp_indice = indice_L
 
-                # loss_tcp = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
-                #                             input_gt=tcp_gt, indice=tcp_indice)
-                loss_tcp = torch.zeros(1).cuda().detach()
+                loss_tcp = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
+                                            input_gt=tcp_gt, indice=tcp_indice)
 
                 loss_tcp_labeled = torch.zeros(1).cuda().detach()
 
@@ -264,7 +263,7 @@ class TrainEngine(object):
             (tcp_imgs, _, _), tcp_labels, _ = iter(tcp_loader).next()
             tcp_imgs, tcp_labels = tcp_imgs.cuda(), tcp_labels.cuda()
 
-            tcp_feats, _, _ = self.model(tcp_imgs)
+            tcp_feats = self.model.module.extract_feature(tcp_imgs)
             tcp_feats = tcp_feats.detach()
             tcp_logits_abc = self.model.module.fc_abc(tcp_feats)
             tcp_labels = label2onehot(tcp_get_labels, tcp_get_num, self.num_class)
