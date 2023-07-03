@@ -42,10 +42,10 @@ def create_dataset(args, logger=None):
     if args.dataset == 'imagenet':
         train_labeled_set, train_unlabeled_set, val_set, sample_num_per_class = get_dataset(
             root=args.data_path,
-            annotation_file_train_labeled=f'{args.annotation_file_path}/maxL{args.max_num_l}_maxU{args.max_num_u}_imbL{args.imb_ratio_l}_imbU{args.imb_ratio_u}_labeled.txt',
-            annotation_file_train_unlabeled=f'{args.annotation_file_path}/maxL{args.max_num_l}_maxU{args.max_num_u}_imbL{args.imb_ratio_l}_imbU{args.imb_ratio_u}_unlabeled.txt',
+            annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
+            annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
             annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
-            num_per_class=f'{args.annotation_file_path}/maxL{args.max_num_l}_maxU{args.max_num_u}_imbL{args.imb_ratio_l}_imbU{args.imb_ratio_u}_sampleNum.txt')
+            num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
     elif args.dataset == 'imagenet127':
         train_labeled_set, train_unlabeled_set, val_set, sample_num_per_class = get_dataset(
             root=args.data_path,
@@ -140,4 +140,3 @@ def create_dataset(args, logger=None):
                             drop_last=True)
 
     return labeled_trainloader, unlabeled_trainloader, val_loader, sample_num_per_class, num_class
-
