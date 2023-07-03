@@ -35,7 +35,10 @@ class TailClassPool(object):
         input_labels = input_labels.detach()
 
         B, C = input_features.shape[0], class_distribution.shape[0]
-        input_onehot = label2onehot(label=input_labels.cpu(), batch=B, num_class=C, to_cuda=True)
+        print(input_labels)
+        print(B)
+        print(C)
+        input_onehot = label2onehot(label=input_labels, batch=B, num_class=C, to_cuda=True)
 
         # 按照类别样本数量分布，选取本次需要加入的样本
         if self.args.tcp_put_type == 'inpool':
