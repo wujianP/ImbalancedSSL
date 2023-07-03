@@ -10,7 +10,6 @@ python -m torch.distributed.launch --nproc_per_node=2 --master_port 29500 ABCfix
  --tcp_pool_size 1024 \
  --tcp_get_num 256 \
  --tcp_distribution_type pd_select \
- --tcp_sync_input \
  --tcp_sample_fun_type poly_inv \
  --tcp_balance_power 3 \
  --tcp_sample_power 1.25 \
