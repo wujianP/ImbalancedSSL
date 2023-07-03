@@ -1,9 +1,8 @@
-cd '/share/home/wjpeng/projects/ImbalancedSSL/BMB_IMG'
+cd '/share/home/wjpeng/projects/ImbalancedSSL/BMB'
 DATA='/share_io03_ssd/ckpt2/wjpeng/dataset'
-OUT='/share/home/wjpeng/ckp/BMB/rebuttal/image-pool/cifar10_r20_index_pool_seed0'
-python -m torch.distributed.launch --nproc_per_node=1 --master_port 29500 ABCfix.py \
- --gpu 0 \
- --tcp_store_img \
+OUT='/share/home/wjpeng/ckp/BMB/rebuttal/image-pool/baseline'
+python -m torch.distributed.launch --nproc_per_node=1 --master_port 29501 ABCfix.py \
+ --gpu 1 \
  --tcp_strong \
  --tcp_refresh_after_warm \
  --tcp_pool_size 128 \
