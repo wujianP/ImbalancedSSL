@@ -138,10 +138,7 @@ class TrainEngine(object):
                 loss_tcp = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
                                             input_gt=tcp_gt, indice=tcp_indice)
 
-                if self.args.tcp_separate_labeled:
-                    raise KeyError
-                else:
-                    loss_tcp_labeled = torch.zeros(1).cuda().detach()
+                loss_tcp_labeled = torch.zeros(1).cuda().detach()
 
             #  计算损失值
             loss_total = loss_L_base + loss_L_abc
