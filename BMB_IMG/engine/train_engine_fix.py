@@ -267,8 +267,10 @@ class TrainEngine(object):
             else:
                 (tcp_imgs, _, _), gt_labels, _ = iter(tcp_loader).next()
 
-            print(f'True gt: {gt_labels}')
-            print(f'TCP gt: {tcp_get_gts}')
+            if dist.get_rank() == 0:
+                print(f'Get Num: {tcp_get_num}')
+                print(f'True gt: {gt_labels}')
+                print(f'TCP gt: {tcp_get_gts}')
             # assert tcp_get_gts == gt_labels
 
             tcp_imgs, tcp_get_labels = tcp_imgs.cuda(), tcp_get_labels.cuda()
