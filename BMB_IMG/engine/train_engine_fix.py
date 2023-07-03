@@ -135,8 +135,9 @@ class TrainEngine(object):
                     tcp_gt = targets_L
                     tcp_indice = indice_L
 
-                loss_tcp = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
-                                            input_gt=tcp_gt, indice=tcp_indice)
+                # loss_tcp = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
+                #                             input_gt=tcp_gt, indice=tcp_indice)
+                loss_tcp = torch.zeros(1).cuda().detach()
 
                 loss_tcp_labeled = torch.zeros(1).cuda().detach()
 
