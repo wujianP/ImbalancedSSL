@@ -260,7 +260,12 @@ class TrainEngine(object):
             # 根据indice加载图片和标签
             tcp_set = Subset(self.unlabeled_loader.dataset, tcp_get_indice.int().tolist())
             tcp_loader = DataLoader(tcp_set, batch_size=len(tcp_set))
-            (tcp_imgs, _, _), tcp_labels, _ = iter(tcp_loader).next()
+
+            if self.args.tcp_store_img_strong:
+                (_, tcp_imgs, _), tcp_labels, _ = iter(tcp_loader).next()
+            else:
+                (tcp_imgs, _, _), tcp_labels, _ = iter(tcp_loader).next()
+
             tcp_imgs, tcp_labels = tcp_imgs.cuda(), tcp_labels.cuda()
 
             tcp_feats = self.model.module.extract_feature(tcp_imgs)
