@@ -1,0 +1,45 @@
+cd '/share/home/wjpeng/projects/improvedABC'
+DATA='/share_io03_ssd/ckpt2/wjpeng/dataset'
+OUT='/share/home/wjpeng/ckp/experiments/TCP/cifar10/adaweight+TCP/r50-noAdaW'
+python -m torch.distributed.launch --nproc_per_node=1 --master_port 29502 ABCfix.py \
+ --gpu 1 \
+ --tcp_pool_size 512 \
+ --tcp_get_num 128 \
+ --tcp_distribution_type pd_select \
+ --tcp_sync_input \
+ --tcp_sample_fun_type poly_inv \
+ --tcp_balance_power 2 \
+ --tcp_sample_power 2 \
+ --tcp_put_type inpool \
+ --tcp_remove_type inpool \
+ --tcp_loss_weight \
+ --ada_weight_type no \
+ --sample_fun_type poly_inv \
+ --no_mask_L_for_balance \
+ --sample_power 0.1 \
+ --tau 0.95 \
+ --model wideresnet \
+ --dataset cifar10 \
+ --num_max_l 1500 \
+ --num_max_u 3000 \
+ --imb_ratio_l 50 \
+ --imb_ratio_u 50 \
+ --imb_type long \
+ --epoch 250 \
+ --warmup_epoch 0 \
+ --val-iteration 500 \
+ --labeled_batch_size 64 \
+ --unlabeled_batch_size 64 \
+ --val_batch_size 64 \
+ --lr 0.002 \
+ --lr_scheduler_type none \
+ --optim_type adam \
+ --pd_distribution_estimate_nepoch 999 \
+ --dist_eval \
+ --num_workers 4 \
+ --writer_log_iter_freq 100 \
+ --writer_log_class_stride 1 \
+ --train_log_iter_freq 100 \
+ --find_unused_parameters \
+ --out ${OUT} \
+ --data_path ${DATA}

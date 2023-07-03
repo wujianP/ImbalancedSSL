@@ -107,7 +107,8 @@ class BaseTrainer:
             meta_dict[prefix + "_" + "median20"] = get_last_n_median(history, n=20)
 
         is_best = False
-        prefix = "valid/top1"
+        # prefix = "val/top1"
+        prefix = "test/top1"
         if meta_dict[prefix] >= meta_dict[prefix + "_best"]:
             is_best = True
 

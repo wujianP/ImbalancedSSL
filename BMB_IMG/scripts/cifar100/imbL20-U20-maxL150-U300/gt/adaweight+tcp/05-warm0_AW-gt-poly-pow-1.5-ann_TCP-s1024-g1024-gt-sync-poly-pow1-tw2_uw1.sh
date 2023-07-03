@@ -1,0 +1,43 @@
+cd '/discobox/wjpeng/code/ada-tcp'
+DATA='/dev/shm'
+OUT='/discobox/wjpeng/ckp/cifar100/imbL20-U20-maxL150-U300/adaweight+tcp/warm0_AW-gt-poly-pow-1.5-ann_TCP-sg1024-gt-sync-poly-pow1-tw2_uw1'
+python -m torch.distributed.launch --nproc_per_node=2 --master_port 29505 ABCfix.py \
+ --ada_weight_type gt \
+ --sample_fun_type poly_inv \
+ --sample_power 1.5 \
+ --ada_weight_anneal \
+ --tau_high 0.9 \
+ --tcp_pool_size 1024 \
+ --tcp_get_num 1024 \
+ --tcp_distribution_type gt \
+ --tcp_sync_input \
+ --tcp_sample_fun_type poly_inv \
+ --tcp_sample_power 1 \
+ --tcp_loss_weight 2 \
+ --loss_u_weight 1 \
+ --gpu 2,3 \
+ --dist_eval \
+ --model wideresnet \
+ --dataset cifar100 \
+ --num_max_l 150 \
+ --num_max_u 300 \
+ --imb_ratio_l 20 \
+ --imb_ratio_u 20 \
+ --imb_type long \
+ --epoch 250 \
+ --warmup_epoch 0 \
+ --val-iteration 500 \
+ --labeled_batch_size 64 \
+ --unlabeled_batch_size 64 \
+ --val_batch_size 64 \
+ --lr 0.004 \
+ --lr_scheduler_type none \
+ --optim_type adam \
+ --pd_distribution_estimate_nepoch 5 \
+ --num_workers 6 \
+ --writer_log_iter_freq 100 \
+ --writer_log_class_stride 5 \
+ --train_log_iter_freq 100 \
+ --find_unused_parameters \
+ --out ${OUT} \
+ --data_path ${DATA}
