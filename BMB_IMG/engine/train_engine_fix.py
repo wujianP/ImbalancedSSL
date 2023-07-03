@@ -9,6 +9,8 @@ from utils import *
 from tqdm import tqdm
 from torch.utils.data import Subset, DataLoader
 
+torch.autograd.set_detect_anomaly(True)
+
 
 class TrainEngine(object):
     def __init__(self, args, labeled_loader=None, unlabeled_loader=None, model=None, tcp_resume=False,
