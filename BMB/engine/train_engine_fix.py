@@ -198,7 +198,7 @@ class TrainEngine(object):
 
             per_epoch_meters['batch_time'].update(time.time() - end - per_epoch_meters['data_time'].val)
             iter_time = time.time() - end
-            gpu_mem = torch.cuda.memory_allocated() / 1024
+            gpu_mem = torch.cuda.memory_allocated() / 1024 / 1024
             # mis log
             self.mis_logger.info(
                 "{time_per_iter:.3f}, {get_num_per_iter:>3d}, {gpu_mem:4.2f}(MiB)",
