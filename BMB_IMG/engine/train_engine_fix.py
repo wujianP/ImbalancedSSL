@@ -137,9 +137,7 @@ class TrainEngine(object):
                                             input_gt=tcp_gt, indice=tcp_indice)
 
                 if self.args.tcp_separate_labeled:
-                    loss_tcp_labeled = self.process_tcp_labeled(
-                        soft_pseudo=label2onehot(targets_L, batch_size_L, self.num_class),
-                        input_features=feats_L, epoch=epoch)
+                    raise KeyError
                 else:
                     loss_tcp_labeled = torch.zeros(1).cuda().detach()
 
@@ -266,7 +264,9 @@ class TrainEngine(object):
             (tcp_imgs, _, _), tcp_labels, _ = iter(tcp_loader).next()
             tcp_imgs, tcp_labels = tcp_imgs.cuda(), tcp_labels.cuda()
 
-            _, tcp_logits_abc, _ = self.model(tcp_imgs)
+            tcp_feats, _, _ = self.model(tcp_imgs)
+            tcp_feats = tcp_feats.detach()
+            tcp_logits_abc = self.model.fc_abc(tcp_feats)
             tcp_labels = label2onehot(tcp_get_labels, tcp_get_num, self.num_class)
             loss_tcp = -torch.mean(torch.sum(F.log_softmax(tcp_logits_abc, dim=1) * tcp_labels, dim=1))
 
