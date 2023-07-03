@@ -151,6 +151,7 @@ def get_args():
 
     parser.add_argument('--tcp_store_img', action='store_true')
     parser.add_argument('--tcp_store_img_strong', action='store_true')
+    parser.add_argument('--tcp_store_img_detach', action='store_true')
 
     args = parser.parse_args()
     # 进行一些默认设置，以保证与之前的版本兼容

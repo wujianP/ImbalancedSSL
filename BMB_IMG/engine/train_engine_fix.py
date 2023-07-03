@@ -276,7 +276,8 @@ class TrainEngine(object):
             tcp_imgs, tcp_get_labels = tcp_imgs.cuda(), tcp_get_labels.cuda()
 
             tcp_feats = self.model.module.extract_feature(tcp_imgs)
-            # tcp_feats = tcp_feats.detach()
+            if self.args.tcp_store_img_detach:
+                tcp_feats = tcp_feats.detach()
             tcp_logits_abc = self.model.module.fc_abc(tcp_feats)
 
             tcp_get_labels = label2onehot(tcp_get_labels, tcp_get_num, self.num_class)
