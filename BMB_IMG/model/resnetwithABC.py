@@ -273,6 +273,9 @@ class ResNet(nn.Module):
             print('==> Pretrained model loaded')
             self.encoder.load_state_dict(part_state_dict)
 
+    def extract_feature(self, x):
+        return self.encoder(x)
+
     def forward(self, x):
 
         feats = self.encoder(x)
