@@ -44,8 +44,10 @@ def main(args):
 
     # Resume from checkpoint
     checkpoint = torch.load(args.resume, map_location='cpu')
-    # model.load_state_dict(checkpoint['state_dict'])
-    model.load_state_dict(checkpoint['model'])
+    if args.daso:
+        model.load_state_dict(checkpoint['model'])
+    else:
+        model.load_state_dict(checkpoint['state_dict'])
     ema_model.load_state_dict(checkpoint['ema_state_dict'])
     epoch = checkpoint['epoch']
     best_acc = 0

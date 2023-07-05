@@ -4,6 +4,7 @@ DATA='/dev/shm/imagenet'
 ANN='/discobox/wjpeng/code/ImbalancedSSL/BMB/dataset/ImageNet_LT'
 OUT='/discobox/wjpeng/ckp/BMB/imagenetLT/semi50/ours_adam/test'
 python -m torch.distributed.launch --nproc_per_node=1 --master_port 29532 eval.py \
+ --daso \
  --gpu 4 \
  --dataset imagenet \
  --imb_ratio_l 50 \

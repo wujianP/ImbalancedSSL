@@ -148,6 +148,7 @@ def get_args():
     parser.add_argument('--tcp_use_strong', action='store_true')
     parser.add_argument('--tcp_use_weak_strong', action='store_true')
     parser.add_argument('--tcp_cross_pd', action='store_true')
+    parser.add_argument('--daso', action='store_true')
 
     args = parser.parse_args()
     # 进行一些默认设置，以保证与之前的版本兼容
