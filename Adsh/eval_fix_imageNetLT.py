@@ -159,7 +159,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger,
         checkpoint = torch.load(args.resume)
         args.start_epoch = checkpoint['epoch']
         ema_model.load_state_dict(checkpoint['ema_state_dict'])
-        ema_model.ema.load_state_dict(checkpoint['ema_state_dict'])
+        ema_model.load_state_dict(checkpoint['ema_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
 
     logger.info("***** Running training *****")
