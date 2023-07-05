@@ -174,7 +174,7 @@ class TrainEngine(object):
 
             if self.mis_logger:
                 self.mis_logger.info(
-                    "{time_per_iter:.3f}, {get_num_per_iter:>3d}, {gpu_mem:4.2f}(MiB)",
+                    "{time_per_iter:.3f}, {get_num_per_iter:>3d}",
                     time_per_iter=iter_time,
                     get_num_per_iter=tcp_get_num,
                 )
