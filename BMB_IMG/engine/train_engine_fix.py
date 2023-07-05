@@ -16,7 +16,7 @@ class TrainEngine(object):
     def __init__(self, args, labeled_loader=None, unlabeled_loader=None, model=None, tcp_resume=False,
                  optimizer=None, ema_optimizer=None, semi_loss: SemiLoss = None, tcp_state_dict=None,
                  sample_num_per_class=None, num_class=None, logger=None, log_writer=None, tcp_num_logger=None,
-                 tcp_acc_logger=None, tcp_get_num_logger=None):
+                 tcp_acc_logger=None, tcp_get_num_logger=None, mis_logger=None):
         self.args = args
         self.labeled_loader = labeled_loader
         self.unlabeled_loader = unlabeled_loader
@@ -43,6 +43,8 @@ class TrainEngine(object):
         if tcp_state_dict and tcp_resume:
             raise KeyError
             # self.tcp.load_state_dict(state_dict=tcp_state_dict)
+
+        self.mis_logger = mis_logger
 
     def train_one_epoch_fix(self, epoch):
 
@@ -135,7 +137,7 @@ class TrainEngine(object):
                     tcp_gt = targets_U
                     tcp_indice = indice_U
 
-                loss_tcp = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
+                loss_tcp, tcp_get_num = self.process_tcp(soft_pseudo=tcp_labels, input_features=tcp_feats, epoch=epoch,
                                             input_gt=tcp_gt, indice=tcp_indice)
 
                 loss_tcp_labeled = torch.zeros(1).cuda().detach()
@@ -167,6 +169,15 @@ class TrainEngine(object):
                 self.ema_optimizer.step()
 
             per_epoch_meters['batch_time'].update(time.time() - end - per_epoch_meters['data_time'].val)
+
+            iter_time = time.time() - end
+
+            if self.mis_logger:
+                self.mis_logger.info(
+                    "{time_per_iter:.3f}, {get_num_per_iter:>3d}, {gpu_mem:4.2f}(MiB)",
+                    time_per_iter=iter_time,
+                    get_num_per_iter=tcp_get_num,
+                )
 
             # log loss and pseudo statistics to tensorboard
             if self.log_writer:
@@ -286,7 +297,7 @@ class TrainEngine(object):
         else:
             loss_tcp = torch.zeros(1).cuda()
 
-        return loss_tcp
+        return loss_tcp, tcp_get_num
 
     def compute_loss(self, meters, logits_all, batch_size_L, batch_size_U, targets_L, mode, epoch, logits_abc_all=None):
         """targets_L 形如[B]，还没有转化为one-hot向量"""

@@ -2,13 +2,10 @@ conda activate /discobox/wjpeng/env/bmb/
 
 cd '/discobox/wjpeng/code/ImbalancedSSL/BMB'
 DATA='/dev/shm'
-OUT='/discobox/wjpeng/ckp/BMB/rebuttal/base-classifier/cifar10_wo_base'
-
-python -m torch.distributed.launch --nproc_per_node=1 --master_port 29507 ABCfix.py \
- --gpu 7 \
- --disable_backbone \
+OUT='/discobox/wjpeng/ckp/BMB/rebuttal/image-pool/debug_feats'
+python -m torch.distributed.launch --nproc_per_node=1 --master_port 29501 ABCfix.py \
+ --gpu 1 \
  --tcp_strong \
- --tcp_refresh_after_warm \
  --tcp_pool_size 128 \
  --tcp_get_num 64 \
  --tcp_distribution_type pd_select \
@@ -21,7 +18,7 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port 29507 ABCfix
  --ada_weight_type pd_select \
  --sample_fun_type poly_inv \
  --sample_power 1.5 \
- --tau 0.95 \
+ --tau 0 \
  --model wideresnet \
  --dataset cifar10 \
  --num_max_l 1500 \
@@ -35,7 +32,7 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port 29507 ABCfix
  --labeled_batch_size 64 \
  --unlabeled_batch_size 64 \
  --val_batch_size 128 \
- --lr 0.002 \
+ --lr 0.008 \
  --lr_scheduler_type none \
  --optim_type adam \
  --pd_distribution_estimate_nepoch 999 \

@@ -52,6 +52,8 @@ def create_logger(args, remove_console=False):
                filter=lambda record: record["extra"]["name"] == "tcp_acc_log")
     logger.add(args.out + "/log/tcp_get_num_log@{time:MM-DD_HH:mm}.log", format="{message}", level="INFO",
                filter=lambda record: record["extra"]["name"] == "tcp_get_num_log")
+    logger.add(args.out + "/log/mis_log@{time:MM-DD_HH:mm}.log", format="{message}", level="INFO",
+               filter=lambda record: record["extra"]["name"] == "mis_log")
 
     if remove_console:
         logger.remove(handler_id=None)
@@ -62,8 +64,9 @@ def create_logger(args, remove_console=False):
     tcp_num_logger = logger.bind(name='tcp_num_log')
     tcp_acc_logger = logger.bind(name='tcp_acc_log')
     tcp_get_num_logger = logger.bind(name='tcp_get_num_log')
+    mis_logger = logger.bind(name='mis_log')
 
-    return log_writer, cfg_logger, train_logger, val_logger, tcp_num_logger, tcp_acc_logger, tcp_get_num_logger
+    return log_writer, cfg_logger, train_logger, val_logger, tcp_num_logger, tcp_acc_logger, tcp_get_num_logger, mis_logger
 
 
 def log_stats(writer, meters, mode, num_class, split, stride, step=-1):
