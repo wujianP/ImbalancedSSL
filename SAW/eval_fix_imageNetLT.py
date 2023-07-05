@@ -338,6 +338,9 @@ def shot_accuracy(correct_num_per_class: np.ndarray,
         else:
             median_shot_acc.append(acc)
 
+    from IPython import embed
+    embed()
+
     ret = {
         'acc_per_class': np.array(acc_per_class),
         'all_acc': np.mean(acc_per_class),

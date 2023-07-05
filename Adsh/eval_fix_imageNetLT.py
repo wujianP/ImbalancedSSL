@@ -167,103 +167,8 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
     logger.info(f"  Batch size per GPU = {args.batch_size}")
     logger.info(f"  Total optimization steps = {args.total_steps}")
 
-    test_accs = []
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    losses_x = AverageMeter()
-    losses_u = AverageMeter()
-    end = time.time()
+    test_loss, test_acc = test(args, test_loader, ema_model, )
 
-    labeled_iter = iter(label_loader)
-    unlabeled_iter = iter(unlabel_loader)
-    score = np.zeros(args.num_classes) + args.threshold
-
-    best_acc = 0
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.alg == 'adsh' and epoch > 1:
-            score = update_s(args, score, unlabel_loader, model)
-
-        model.train()
-        p_bar = tqdm(range(args.eval_steps))
-        for batch_idx in p_bar:
-            try:
-                inputs_l, targets = labeled_iter.next()
-            except:
-                labeled_iter = iter(label_loader)
-                inputs_l, targets = labeled_iter.next()
-
-            try:
-                (inputs_u, _) = unlabeled_iter.next()
-            except:
-                unlabeled_iter = iter(unlabel_loader)
-                (inputs_u, _) = unlabeled_iter.next()
-
-            data_time.update(time.time() - end)
-
-            inputs_l = inputs_l.cuda()
-            targets = targets.cuda().long()
-
-            logits = model(inputs_l)[0]
-            cls_loss = F.cross_entropy(logits, targets)
-            if args.alg == 'supervised':
-                ssl_loss = torch.zeros(1).cuda()
-            elif args.alg == 'adsh':
-                ssl_loss = ssl_obj(inputs_u[0], inputs_u[1], model, score)
-            elif args.alg == 'FM':
-                ssl_loss = ssl_obj(inputs_u[0], inputs_u[1], model)
-
-            loss = cls_loss + args.lambda_u * ssl_loss
-
-            losses.update(loss.item(), inputs_l.size(0))
-            losses_x.update(cls_loss.item(), inputs_l.size(0))
-            losses_u.update(ssl_loss.item(), inputs_l.size(0))
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            ema_optimizer.step()
-
-            batch_time.update(time.time() - end)
-            end = time.time()
-            p_bar.set_description(
-                "Train Epoch: {epoch}/{epochs:}. Iter: {batch:}/{iter:}. Data: {data:.3f}s. Batch: {bt:.3f}s. Loss: {loss:.4f}. Loss_x: {loss_x:.4f}. Loss_u: {loss_u:.4f}.".format(
-                    epoch=epoch + 1,
-                    epochs=args.epochs,
-                    batch=batch_idx + 1,
-                    iter=args.eval_steps,
-                    data=data_time.avg,
-                    bt=batch_time.avg,
-                    loss=losses.avg,
-                    loss_x=losses_x.avg,
-                    loss_u=losses_u.avg))
-            p_bar.update()
-
-        p_bar.close()
-
-        test_loss, test_acc = test(args, test_loader, ema_model)
-
-        is_best = False
-        if test_acc > best_acc:
-            best_acc = test_acc
-            is_best = True
-            print(f'BEST:!!!!!!!!!!!!!{best_acc}')
-
-        result_logger.append([0, 0, 0, 0, test_loss, test_acc])
-
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
-            'ema_state_dict': ema_model.state_dict(),
-            'acc': test_acc,
-            'best_acc': best_acc,
-            'optimizer': optimizer.state_dict(),
-        }, epoch + 1, args.out, save_freq=args.save_freq, is_best=is_best)
-
-        test_accs.append(test_acc)
-        logger.info('Best top-1 acc: {:.2f}'.format(best_acc))
-        logger.info('Mean top-1 acc: {:.2f}\n'.format(
-            np.mean(test_accs[-20:])))
 
 
 def test(args, test_loader, model):
@@ -336,9 +241,11 @@ def main():
         root=args.data_path,
         annotation_file_train_labeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_labeled.txt',
         annotation_file_train_unlabeled=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_unlabeled.txt',
-        annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_val.txt',
+        annotation_file_val=f'{args.annotation_file_path}/ImageNet_LT_test.txt',
         num_per_class=f'{args.annotation_file_path}/ImageNet_LT_train_semi_{int(args.labeled_ratio)}_sample_num.txt')
-    _, train_labeled_set, train_unlabeled_set, test_set = tmp
+    sample_num_PPP, train_labeled_set, train_unlabeled_set, test_set = tmp
+
+    sample_num_train = sample_num_PPP['labeled']
 
     label_loader = torch.utils.data.DataLoader(train_labeled_set, batch_size=args.batch_size, shuffle=True, num_workers=6,
                                           drop_last=True)
@@ -353,7 +260,7 @@ def main():
         train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger=result_logger)
     elif args.alg == 'adsh':
         ssl_obj = ADSH(args, 1, args.threshold)
-        train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger=result_logger)
+        train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger=result_logger, sample_num_train=sample_num_train)
 
 
 if __name__ == '__main__':
