@@ -344,9 +344,9 @@ def shot_accuracy(correct_num_per_class: np.ndarray,
     ret = {
         'acc_per_class': np.array(acc_per_class),
         'all_acc': np.mean(acc_per_class),
-        'many_shot_acc': np.mean(many_shot_acc),
-        'medium_shot_acc': np.mean(median_shot_acc),
-        'low_shot_acc': np.mean(low_shot_acc)
+        'many_shot_acc': torch.tensor(many_shot_acc).mean(),
+        'medium_shot_acc': torch.tensor(median_shot_acc).mean(),
+        'low_shot_acc': torch.tensor(low_shot_acc).mean()
     }
 
     return ret

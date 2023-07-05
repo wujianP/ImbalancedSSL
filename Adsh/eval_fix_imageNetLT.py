@@ -139,7 +139,7 @@ def update_s(args, score, unlabel_loader, model):
         return score
 
 
-def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger):
+def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger, sample_num_train):
     args.epochs = math.ceil(args.total_steps / args.eval_steps)
 
     model = build_model(args)
@@ -167,11 +167,10 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
     logger.info(f"  Batch size per GPU = {args.batch_size}")
     logger.info(f"  Total optimization steps = {args.total_steps}")
 
-    test_loss, test_acc = test(args, test_loader, ema_model, )
+    test_loss, test_acc = test(args, test_loader, ema_model, sample_num_train=sample_num_train)
 
 
-
-def test(args, test_loader, model):
+def test(args, test_loader, model, sample_num_train):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -180,6 +179,9 @@ def test(args, test_loader, model):
     end = time.time()
 
     test_loader = tqdm(test_loader)
+
+    classwise_correct = torch.zeros(1000).cuda()
+    classwise_num = torch.zeros(1000).cuda()
 
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(test_loader):
@@ -195,6 +197,17 @@ def test(args, test_loader, model):
             losses.update(loss.item(), inputs.shape[0])
             top1.update(prec1.item(), inputs.shape[0])
             top5.update(prec5.item(), inputs.shape[0])
+
+            # classwise prediction
+            pred_label = outputs.max(1)[1]  # torch.Size([16])
+            pred_mask = (targets == pred_label).float()  # torch.Size([16])
+
+            for i in range(1000):
+                class_mask = (targets == i).float()
+
+                classwise_correct[i] += (class_mask * pred_mask).sum()
+                classwise_num[i] += class_mask.sum()
+
             batch_time.update(time.time() - end)
             end = time.time()
             test_loader.set_description(
@@ -212,6 +225,50 @@ def test(args, test_loader, model):
     logger.info("top-1 acc: {:.2f}".format(top1.avg))
     logger.info("top-5 acc: {:.2f}".format(top5.avg))
     return losses.avg, top1.avg
+
+
+def shot_accuracy(correct_num_per_class: np.ndarray,
+                  train_num_per_class,
+                  test_num_per_class,
+                  many_shot_thr=100,
+                  low_shot_thr=20):
+    """
+    Args:
+        correct_num_per_class: 每个类预测正确的样本数量，如果是dist_eval情况下，需要传入所有GPU上的sum
+        train_num_per_class: 训练集中每个类别所含样本数量，用于区分many/medium/low shot
+        test_num_per_class: 测试集上每个类别样本数量，与correct_num_per_class配合计算每个类别的准确率，无论dist_eval与否
+            都是指的整个测试数据集中每个类别的样本数量
+        many_shot_thr:
+        low_shot_thr:
+    """
+    num_class = len(train_num_per_class)
+    many_shot_acc = []
+    median_shot_acc = []
+    low_shot_acc = []
+    acc_per_class = []
+
+    for i in range(num_class):
+        acc = (correct_num_per_class[i] / test_num_per_class[i]) * 100
+        acc_per_class.append(acc.item())
+        if train_num_per_class[i] >= many_shot_thr:
+            many_shot_acc.append(acc)
+        elif train_num_per_class[i] <= low_shot_thr:
+            low_shot_acc.append(acc)
+        else:
+            median_shot_acc.append(acc)
+
+    from IPython import embed
+    embed()
+
+    ret = {
+        'acc_per_class': np.array(acc_per_class),
+        'all_acc': np.mean(acc_per_class),
+        'many_shot_acc': np.mean(many_shot_acc),
+        'medium_shot_acc': np.mean(median_shot_acc),
+        'low_shot_acc': np.mean(low_shot_acc)
+    }
+
+    return ret
 
 
 def main():
