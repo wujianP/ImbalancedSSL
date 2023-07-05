@@ -167,7 +167,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger,
     logger.info(f"  Batch size per GPU = {args.batch_size}")
     logger.info(f"  Total optimization steps = {args.total_steps}")
 
-    test_loss, test_acc = test(args, test_loader, ema_model, sample_num_train=sample_num_train)
+    all_acc, many_acc, medium_acc, low_acc = test(args, test_loader, ema_model, sample_num_train=sample_num_train)
 
 
 def test(args, test_loader, model, sample_num_train):
@@ -222,9 +222,18 @@ def test(args, test_loader, model, sample_num_train):
                 ))
         test_loader.close()
 
-    logger.info("top-1 acc: {:.2f}".format(top1.avg))
-    logger.info("top-5 acc: {:.2f}".format(top5.avg))
-    return losses.avg, top1.avg
+    ret = shot_accuracy(correct_num_per_class=classwise_correct,
+                        many_shot_thr=args.many_shot_thr,
+                        low_shot_thr=args.low_shot_thr,
+                        train_num_per_class=sample_num_train,
+                        test_num_per_class=classwise_num)
+
+    all_acc, many_acc, medium_acc, low_acc = ret['all_acc'], ret['many_shot_acc'], ret['medium_shot_acc'], ret[
+        'low_shot_acc']
+
+    print(ret)
+
+    return all_acc, many_acc, medium_acc, low_acc
 
 
 def shot_accuracy(correct_num_per_class: np.ndarray,
@@ -263,9 +272,9 @@ def shot_accuracy(correct_num_per_class: np.ndarray,
     ret = {
         'acc_per_class': np.array(acc_per_class),
         'all_acc': np.mean(acc_per_class),
-        'many_shot_acc': np.mean(many_shot_acc),
-        'medium_shot_acc': np.mean(median_shot_acc),
-        'low_shot_acc': np.mean(low_shot_acc)
+        'many_shot_acc': torch.tensor(many_shot_acc).mean(),
+        'medium_shot_acc': torch.tensor(median_shot_acc).mean(),
+        'low_shot_acc': torch.tensor(low_shot_acc).mean()
     }
 
     return ret
