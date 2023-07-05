@@ -4,13 +4,12 @@ DATA='/dev/shm/imagenet'
 ANN='/discobox/wjpeng/code/ImbalancedSSL/BMB/dataset/ImageNet_LT'
 OUT='/discobox/wjpeng/ckp/BMB/imagenetLT/semi50/ours_adam/test'
 python -m torch.distributed.launch --nproc_per_node=1 --master_port 29532 eval.py \
- --daso \
  --gpu 4 \
  --dataset imagenet \
+ --resume /discobox/wjpeng/ckp/BMB/rebuttal/baselines/imagenetLT/SAW_20per/best.pth \
  --imb_ratio_l 50 \
  --imb_ratio_u 1 \
  --model resnet_baseline \
- --resume /discobox/wjpeng/ckp/BMB/rebuttal/baselines/imagenetLT/DASO_50per/DASO_cifar10_l_1500_100_ul_3000_100_seed_34692839/model_best.pth.tar \
  --tcp_strong \
  --tcp_refresh_after_warm \
  --tcp_pool_size 1024 \

@@ -48,11 +48,13 @@ class EvalEngine(object):
             # transform target to one-hot
             targets_onehot = label2onehot(targets, imgs.shape[0], self.num_class)
 
-            feats, logits_abc, logits_base = self.model(imgs)
-            feats_all.append(feats)
-            labels_all.append(targets)
+            # feats, logits_abc, logits_base = self.model(imgs)
+            logits_abc, _ = self.model(imgs)
+            # feats_all.append(feats)
+            # labels_all.append(targets)
             # 选择用哪个分类头进行预测，默认使用ABC分类头
-            logits = logits_base if self.args.eval_base else logits_abc
+            # logits = logits_base if self.args.eval_base else logits_abc
+            logits = logits_abc
 
             scores = F.softmax(logits, dim=1)
             preds = torch.argmax(scores, dim=1)
@@ -69,8 +71,8 @@ class EvalEngine(object):
             top5.update(top5_acc.item(), imgs.size(0))
 
             #  计算pseudo-label的统计信息
-            scores_base = F.softmax(logits_base, dim=1)
-            scores_abc = F.softmax(logits_abc, dim=1)
+            # scores_base = F.softmax(logits_base, dim=1)
+            # scores_abc = F.softmax(logits_abc, dim=1)
             # pseudo_stat_abc = analysis_val_pseudo_labels(true_labels_L=targets, soft_pseudo_L=scores_abc,
             #                                              args=self.args, threshold=self.args.tau)
             # pseudo_stat_base = analysis_val_pseudo_labels(true_labels_L=targets, soft_pseudo_L=scores_base,
