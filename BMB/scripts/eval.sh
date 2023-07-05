@@ -1,8 +1,8 @@
 conda activate /discobox/wjpeng/env/bmb
 cd '/discobox/wjpeng/code/ImbalancedSSL/BMB'
 DATA='/dev/shm/imagenet'
-ANN='/discobox/wjpeng/code/ImbalancedSSL/BMB/dataset/ImageNet_LT_mismatch/ann'
-OUT='/discobox/wjpeng/ckp/BMB/imagenetLT/semi50/ours_adam/adaW0.75-Tcps1024g256bp3sp0.75wt0.75_strong'
+ANN='/discobox/wjpeng/code/ImbalancedSSL/BMB/dataset/ImageNet_LT'
+OUT='/discobox/wjpeng/ckp/BMB/imagenetLT/semi50/ours_adam/test'
 python -m torch.distributed.launch --nproc_per_node=1 --master_port 29532 eval.py \
  --gpu 4 \
  --dataset imagenet \

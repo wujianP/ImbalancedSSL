@@ -44,7 +44,8 @@ def main(args):
 
     # Resume from checkpoint
     checkpoint = torch.load(args.resume, map_location='cpu')
-    model.load_state_dict(checkpoint['state_dict'])
+    # model.load_state_dict(checkpoint['state_dict'])
+    model.load_state_dict(checkpoint['model'])
     ema_model.load_state_dict(checkpoint['ema_state_dict'])
     epoch = checkpoint['epoch']
     best_acc = 0
