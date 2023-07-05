@@ -1,45 +1,43 @@
 conda activate /discobox/wjpeng/env/bmb/
-
-cd '/discobox/wjpeng/code/ImbalancedSSL/BMB'
-DATA='/dev/shm'
-OUT='/discobox/wjpeng/ckp/BMB/rebuttal/image-pool/debug_feats'
-python -m torch.distributed.launch --nproc_per_node=1 --master_port 29501 ABCfix.py \
- --gpu 1 \
+cd '/discobox/wjpeng/code/ImbalancedSSL/BMB_IMG'
+DATA='/dev/shm/imagenet'
+ANN='/discobox/wjpeng/code/img127-tcp/dataset/ImageNet_LT'
+OUT='/discobox/wjpeng/ckp/BMB/rebuttal/image-pool/ddd'
+python -m torch.distributed.launch --nproc_per_node=1 --master_port 29513 ABCfix.py \
+ --gpu 4 \
+ --tcp_store_img \
+ --tcp_store_img_strong \
  --tcp_strong \
- --tcp_pool_size 128 \
- --tcp_get_num 64 \
+ --tcp_pool_size 1024 \
+ --tcp_get_num 0 \
  --tcp_distribution_type pd_select \
  --tcp_sample_fun_type poly_inv \
  --tcp_balance_power 3 \
- --tcp_sample_power 0.75 \
+ --tcp_sample_power 1.25 \
  --tcp_put_type inpool \
  --tcp_remove_type inpool \
- --tcp_loss_weight 0.25 \
+ --tcp_loss_weight 0.75 \
  --ada_weight_type pd_select \
  --sample_fun_type poly_inv \
- --sample_power 1.5 \
+ --sample_power 0.5 \
+ --dataset imagenet \
+ --labeled_ratio 20 \
+ --model resnet \
  --tau 0 \
- --model wideresnet \
- --dataset cifar10 \
- --num_max_l 1500 \
- --num_max_u 3000 \
- --imb_ratio_l 20 \
- --imb_ratio_u 20 \
- --imb_type long \
- --epoch 500 \
- --warmup_epoch 20 \
- --val-iteration 500 \
- --labeled_batch_size 64 \
- --unlabeled_batch_size 64 \
+ --epochs 300 \
+ --warmup_epochs 10 \
+ --num_workers 3 \
+ --val-iteration 64 \
+ --labeled_batch_size 16 \
+ --unlabeled_batch_size 16 \
  --val_batch_size 128 \
  --lr 0.008 \
  --lr_scheduler_type none \
  --optim_type adam \
- --pd_distribution_estimate_nepoch 999 \
- --num_workers 4 \
  --writer_log_iter_freq 100 \
- --writer_log_class_stride 1 \
- --train_log_iter_freq 100 \
- --find_unused_parameters \
+ --writer_log_class_stride 50 \
+ --train_log_iter_freq 50 \
+ --pd_distribution_estimate_nepoch 999 \
  --out ${OUT} \
- --data_path ${DATA}
+ --data_path ${DATA} \
+ --annotation_file_path ${ANN}

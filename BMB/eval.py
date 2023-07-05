@@ -21,7 +21,7 @@ def main(args):
 
     # create logger
     if is_main_process():
-        log_writer, cfg_logger, train_logger, val_logger, _, _ = create_logger(args, remove_console=False)
+        log_writer, cfg_logger, train_logger, val_logger, _, _, _, _ = create_logger(args, remove_console=False)
         cfg_logger.info("==> hyperparameters:\n{}".format(args).replace(',', '\n'))
     else:
         log_writer, cfg_logger, train_logger, val_logger = None, None, None, None
