@@ -330,7 +330,7 @@ def shot_accuracy(correct_num_per_class: np.ndarray,
 
     for i in range(num_class):
         acc = (correct_num_per_class[i] / test_num_per_class[i]) * 100
-        acc_per_class.append(acc)
+        acc_per_class.append(acc.item())
         if train_num_per_class[i] >= many_shot_thr:
             many_shot_acc.append(acc)
         elif train_num_per_class[i] <= low_shot_thr:
