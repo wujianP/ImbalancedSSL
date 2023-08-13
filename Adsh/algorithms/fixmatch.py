@@ -29,7 +29,6 @@ class FixMatch(nn.Module):
 class ADSH(nn.Module):
     def __init__(self, args, temperature, threshold):
         super().__init__()
-        self.device = args.device
         self.mu = args.mu
         self.T = temperature
         self.threshold = threshold
