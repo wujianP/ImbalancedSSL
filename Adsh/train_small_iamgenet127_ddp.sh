@@ -1,5 +1,5 @@
 conda activate /discobox/wjpeng/env/bmb/
-FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/Small_ImageNet127/Adsh/res64_1per_8gpu'
+FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/Small_ImageNet127/Adsh/res64_10per_8gpu'
 mkdir $FOLDERDIR
 cd /discobox/wjpeng/code/ImbalancedSSL/Adsh
 
@@ -8,7 +8,7 @@ python -m torch.distributed.launch --nproc_per_node=8 --master_port 29500 train_
 --find_unused_parameters \
 --lr 0.08 \
 --img_size 64 \
---labeled_percent 0.01 \
+--labeled_percent 0.1 \
 --al adsh \
 --mu 1 \
 --total_steps 125000 \
