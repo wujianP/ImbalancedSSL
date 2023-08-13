@@ -47,4 +47,4 @@ class ADSH(nn.Module):
         outputs = model(inputs_us)[0]
 
         ssl_loss = (F.cross_entropy(outputs, rp_hat, reduction='none') * mask).mean()
-        return ssl_loss
+        return ssl_loss, outputs_uw

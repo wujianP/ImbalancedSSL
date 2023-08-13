@@ -13,7 +13,6 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 
-from sklearn.metrics import precision_score, recall_score
 from datasets.models.ema import WeightEMA
 from datasets.models.wideresnet import WideResNet
 from algorithms.fixmatch import FixMatch, ADSH
@@ -79,7 +78,6 @@ np.random.seed(args.manualSeed)
 torch.manual_seed(args.manualSeed)
 torch.backends.cudnn.benchmark = True
 torch.cuda.manual_seed_all(args.manualSeed)
-
 
 
 def save_checkpoint(state, epoch, save_path, save_freq, is_best):
@@ -177,8 +175,10 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
     best_acc = 0
     for epoch in range(args.start_epoch, args.epochs):
         # FIXME
-        if args.alg == 'adsh' and epoch > 1:
-            score = update_s(args, score, unlabel_loader, model)
+        # if args.alg == 'adsh' and epoch > 1:
+        #     score = update_s(args, score, unlabel_loader, model)
+
+        lists = [[] for _ in range(args.num_classes)]
 
         model.train()
         p_bar = tqdm(range(args.eval_steps))
@@ -205,7 +205,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
             if args.alg == 'supervised':
                 ssl_loss = torch.zeros(1).cuda()
             elif args.alg == 'adsh':
-                ssl_loss = ssl_obj(inputs_u[0], inputs_u[1], model, score)
+                ssl_loss, outputs_uw = ssl_obj(inputs_u[0], inputs_u[1], model, score)
             elif args.alg == 'FM':
                 ssl_loss = ssl_obj(inputs_u[0], inputs_u[1], model)
 
@@ -220,8 +220,15 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
             optimizer.step()
             ema_optimizer.step()
 
+            # for score update
+            logits = torch.softmax(outputs_uw.detach(), dim=1)
+            max_probs, targets_u = torch.max(logits, dim=1)
+            for i in range(targets_u.shape[0]):
+                lists[targets_u[i]].append(max_probs[i].detach().cpu().numpy())
+
             batch_time.update(time.time() - end)
             end = time.time()
+
             p_bar.set_description(
                 "Train Epoch: {epoch}/{epochs:}. Iter: {batch:}/{iter:}. Data: {data:.3f}s. Batch: {bt:.3f}s. Loss: {loss:.4f}. Loss_x: {loss_x:.4f}. Loss_u: {loss_u:.4f}.".format(
                     epoch=epoch + 1,
@@ -234,6 +241,20 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
                     loss_x=losses_x.avg,
                     loss_u=losses_u.avg))
             p_bar.update()
+
+        if args.alg == 'adsh' and epoch > 1:
+            lists = np.array(lists, dtype=object)
+            rho = 1.0
+            for i in range(lists.shape[0]):
+                lists[i] = np.sort(np.array(lists[i]))[::-1]
+            for i in range(lists[0].shape[0]):
+                if lists[0][i] < args.threshold:
+                    break
+                rho = (i + 1) / lists[0].shape[0]
+            for i in range(1, lists.shape[0]):
+                if lists[i].shape[0] != 0:
+                    idx = max(0, np.round(lists[i].shape[0] * rho - 1).astype(int))
+                    score[i] = min(args.threshold, lists[i][idx])
 
         p_bar.close()
 
