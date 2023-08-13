@@ -31,7 +31,7 @@ parser.add_argument('--num-workers', type=int, default=8,
                     help='number of workers')
 parser.add_argument('--num_classes', type=int, default=127,
                     help='number of classes')
-parser.add_argument('--total_steps', default=250000, type=int,
+parser.add_argument('--epochs', default=500, type=int,
                     help='number of total steps to run')
 parser.add_argument('--eval_steps', default=500, type=int,
                     help='number of eval steps to run per epoch')
@@ -113,7 +113,6 @@ def build_model(args, ema=False):
 
 
 def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger):
-    args.epochs = math.ceil(args.total_steps / args.eval_steps)
 
     model = build_model(args)
     ema_model = build_model(args, ema=True)
@@ -146,7 +145,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
         logger.info("***** Running training *****")
         logger.info(f"  Num Epochs = {args.epochs}")
         logger.info(f"  Batch size per GPU = {args.batch_size}")
-        logger.info(f"  Total optimization steps = {args.total_steps}")
+        logger.info(f"  Total optimization steps = {args.epochs * args.eval_steps}")
 
     test_accs = []
     batch_time = AverageMeter()
