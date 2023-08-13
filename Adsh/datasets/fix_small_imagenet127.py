@@ -30,10 +30,8 @@ def get_small_imagenet(root, img_size, labeled_percent=0.1, seed=0, return_stron
 
     # compute dataset mean and std
     dataset_mean = (0.48109809, 0.45747185, 0.40785507)  # np.mean(base_dataset.data, axis=(0, 1, 2)) / 255
-    print(dataset_mean)
 
     dataset_std = (0.26040889, 0.2532126, 0.26820634)  # np.std(base_dataset.data, axis=(0, 1, 2)) / 255
-    print(dataset_std)
 
     # construct data augmentation
     # Augmentations.
