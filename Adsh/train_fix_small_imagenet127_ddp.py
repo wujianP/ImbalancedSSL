@@ -68,6 +68,15 @@ parser.add_argument('--labeled_percent', type=float, default=0.1, help='by defau
 parser.add_argument('--img_size', type=int, default=32, help='ImageNet127_32 or ImageNet127_64')
 parser.add_argument('--save_freq', type=int, default=10)
 
+# distributed training parameters
+parser.add_argument('--world_size', default=1, type=int,
+                    help='number of distributed processes')
+parser.add_argument('--local_rank', default=-1, type=int)
+parser.add_argument('--dist_on_itp', action='store_true')
+parser.add_argument('--dist_url', default='env://',
+                    help='url used to set up distributed training')
+parser.add_argument('--find_unused_parameters', action='store_true')
+
 args = parser.parse_args()
 
 if args.manualSeed is None:
