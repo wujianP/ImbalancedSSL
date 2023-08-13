@@ -191,28 +191,26 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
 
             inputs_l = inputs_l.cuda()
             targets = targets.cuda().long()
+            inputs_uw, inputs_us = inputs_u[0].cuda(), inputs_u[0].cuda()
+            # concate
+            inputs_all = torch.cat([inputs_l, inputs_uw, inputs_us])
+            logits_all = model(inputs_all)[0]
 
-            logits = model(inputs_l)[0]
+            logits = logits_all[:args.batch_size]
+            outputs_uw = logits[args.batch_size: args.batch_size * 2]
+            outputs = logits[args.batch_size * 2:]
+
             cls_loss = F.cross_entropy(logits, targets)
-            if args.alg == 'supervised':
-                raise KeyError
-            elif args.alg == 'adsh':
-                # ssl_loss, outputs_uw = ssl_obj(inputs_u[0], inputs_u[1], model, score)
 
-                inputs_uw, inputs_us = inputs_u[0].cuda(), inputs_u[0].cuda()
-                outputs_uw = model(inputs_uw)[0]
-                probs = torch.softmax(outputs_uw, dim=1)
+            # outputs_uw = model(inputs_uw)[0]
+            probs = torch.softmax(outputs_uw, dim=1)
+            rectify_prob = probs / torch.from_numpy(score).float().cuda()
+            max_rp, rp_hat = torch.max(rectify_prob, dim=1)
+            mask = max_rp.ge(1.0)
 
-                rectify_prob = probs / torch.from_numpy(score).float().cuda()
-                max_rp, rp_hat = torch.max(rectify_prob, dim=1)
-                mask = max_rp.ge(1.0)
+            # outputs = model(inputs_us)[0]
 
-                outputs = model(inputs_us)[0]
-
-                ssl_loss = (F.cross_entropy(outputs, rp_hat, reduction='none') * mask).mean()
-
-            elif args.alg == 'FM':
-                raise KeyError
+            ssl_loss = (F.cross_entropy(outputs, rp_hat, reduction='none') * mask).mean()
 
             loss = cls_loss + args.lambda_u * ssl_loss
 
