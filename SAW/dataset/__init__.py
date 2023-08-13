@@ -14,6 +14,7 @@ from .mix_cifar10_dojo import get_cifar10
 from .mix_cifar100_dojo import get_cifar100
 
 from .fix_imagenet import get_imagenet
+from .fix_small_imagenet127 import get_small_imagenet
 
 #from .remix_stl import get_stl10
 #from .imbSTL10_dojo import get_stl10
