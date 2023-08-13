@@ -279,8 +279,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
 
         test_accs.append(test_acc)
         logger.info('Best top-1 acc: {:.2f}'.format(best_acc))
-        logger.info('Mean top-1 acc: {:.2f}\n'.format(
-            np.mean(test_accs[-20:])))
+        logger.info('Mean top-1 acc: {:.2f}\n'.format(test_acc))
 
 
 def test(args, test_loader, model):
