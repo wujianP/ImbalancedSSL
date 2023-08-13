@@ -25,7 +25,7 @@ from config import config
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description='Pytorch SSL Library')
-parser.add_argument('--gpu-ids', default='0', type=int, help='id(s) for CUDA_VISIBE_DEVICES')
+parser.add_argument('--gpu-ids', default='0', type=str, help='id(s) for CUDA_VISIBE_DEVICES')
 parser.add_argument('--alg', default='adsh', type=str, choices=['supervised', 'FM', 'adsh'],help='algorithms')
 parser.add_argument('--num-workers', type=int, default=8,
                     help='number of workers')
