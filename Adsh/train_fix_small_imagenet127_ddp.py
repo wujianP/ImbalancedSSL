@@ -190,7 +190,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
 
             inputs_l = inputs_l.cuda()
             targets = targets.cuda().long()
-            inputs_uw, inputs_us = inputs_u[0].cuda(), inputs_u[0].cuda()
+            inputs_uw, inputs_us = inputs_u[0].cuda(), inputs_u[1].cuda()
             # concate
             inputs_all = torch.cat([inputs_l, inputs_uw, inputs_us])
             logits_all = model(inputs_all)[0]
