@@ -4,9 +4,9 @@ FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/Small_ImageNet127/SAW_res
 mkdir $FOLDERDIR
 cd /discobox/wjpeng/code/ImbalancedSSL/SAW
 python train_fix_small_imagenet127.py \
---gpu 3 \
+--gpu 2 \
 --img_size 64 \
---labeled_percent 0.1 \
+--labeled_percent 0.01 \
 --epochs 500 \
 --start-epoch 0 \
 --batch-size 64 \

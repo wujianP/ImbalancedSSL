@@ -3,6 +3,7 @@
 from .misc import *
 from .logger import *
 from .eval import *
+from .dist import *
 
 # progress bar
 import os, sys
