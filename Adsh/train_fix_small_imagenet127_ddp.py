@@ -361,6 +361,8 @@ def main():
             level=logging.INFO)
 
         logger.info(dict(args._get_kwargs()))
+    else:
+        result_logger = None
 
     if is_main_process():
         print(f'==> Preparing small ImageNet127')

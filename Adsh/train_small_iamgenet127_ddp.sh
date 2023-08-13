@@ -11,8 +11,8 @@ python -m torch.distributed.launch --nproc_per_node=8 --master_port 29500 train_
 --labeled_percent 0.01 \
 --al adsh \
 --mu 1 \
---total_steps 31250 \
---eval_steps 500 \
+--total_steps 125000 \
+--eval_steps 125 \
 --out $FOLDERDIR \
 --save_freq 10 \
  | tee ${FOLDERDIR}/progress.txt
