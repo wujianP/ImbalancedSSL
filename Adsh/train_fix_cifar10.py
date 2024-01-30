@@ -249,14 +249,33 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
             elif args.alg == 'FM':
                 ssl_loss = ssl_obj(inputs_u[0], inputs_u[1], model)
 
-            from IPython import embed
-            embed()
+            # >>>>>>>>>>>>>>>>> TCP BMB HERE
+            tcp_soft_labels = strong_soft_labels.detach()
+            tcp_input_feats = strong_features
+            # put sample
+            max_probs, hard_labels = torch.max(tcp_soft_labels, dim=1)
+            pass_threshold = max_probs.ge(0.95)  # one means pass
+            input_idx = torch.where(pass_threshold == 1)  # 超过threshold的样本的坐标
+            input_feat = tcp_input_feats[input_idx]
+            input_labels = hard_labels[input_idx]
+            tcp.put_samples(input_features=input_feat, input_labels=input_labels)
+            # get sample
+            tcp_got_features, tcp_got_labels, tcp_get_num = tcp.get_samples(get_num=args.get_num)
+            # compute loss
+            if tcp_get_num > 0:
+                from bmb import label2onehot
+                tcp_labels = label2onehot(tcp_got_labels, tcp_get_num, 10)
+                tcp_logits = model.classify2(tcp_got_features)
+                loss_tcp = -torch.mean(torch.sum(F.log_softmax(tcp_logits, dim=1) * tcp_labels, dim=1))
+            else:
+                loss_tcp = torch.zeros(1).cuda()
 
-            loss = cls_loss + args.lambda_u * ssl_loss
+            loss = cls_loss + args.lambda_u * ssl_loss + loss_tcp * args.bmb_loss_wt
 
             losses.update(loss.item(), inputs_l.size(0))
             losses_x.update(cls_loss.item(), inputs_l.size(0))
             losses_u.update(ssl_loss.item(), inputs_l.size(0))
+            losses_bmb.update(loss_tcp.item(), inputs_l.size(0))
 
             optimizer.zero_grad()
             loss.backward()
@@ -266,7 +285,9 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
             batch_time.update(time.time() - end)
             end = time.time()
             p_bar.set_description(
-                "Train Epoch: {epoch}/{epochs:}. Iter: {batch:}/{iter:}. Data: {data:.3f}s. Batch: {bt:.3f}s. Loss: {loss:.4f}. Loss_x: {loss_x:.4f}. Loss_u: {loss_u:.4f}.".format(
+                "Train Epoch: {epoch}/{epochs:}. Iter: {batch:}/{iter:}. Data: {data:.3f}s. "
+                "Batch: {bt:.3f}s. Loss: {loss:.4f}. Loss_x: {loss_x:.4f}."
+                " Loss_u: {loss_u:.4f}. loss_tcp: {loss_tcp:.4f}".format(
                     epoch=epoch + 1,
                     epochs=args.epochs,
                     batch=batch_idx + 1,
@@ -275,7 +296,8 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
                     bt=batch_time.avg,
                     loss=losses.avg,
                     loss_x=losses_x.avg,
-                    loss_u=losses_u.avg))
+                    loss_u=losses_u.avg,
+                    loss_tcp=losses_bmb.avg))
             p_bar.update()
 
         p_bar.close()
@@ -299,6 +321,14 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
         logger.info('Best top-1 acc: {:.2f}'.format(best_acc))
         logger.info('Mean top-1 acc: {:.2f}\n'.format(
             np.mean(test_accs[-20:])))
+
+        wandb.log({
+            "acc": test_acc,
+            "loss_total": losses.avg,
+            "loss_L": losses_x.avg,
+            "loss_U": losses_u.avg,
+            "loss_bmb": losses_bmb.avg
+        })
 
 
 def test(args, test_loader, model):
