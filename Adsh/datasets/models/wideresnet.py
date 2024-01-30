@@ -106,9 +106,12 @@ class WideResNet(nn.Module):
             r = 0
 
         if return_feature:
-            return [c, r, f]
+            return [c, r, f.squeeze()]
         else:
             return c, r
+
+    def classify(self, feature):
+        return self.output(feature)
 
     def update_batch_stats(self, flag):
         for m in self.modules():

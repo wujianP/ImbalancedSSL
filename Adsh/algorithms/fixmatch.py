@@ -34,9 +34,6 @@ class ADSH(nn.Module):
         self.threshold = threshold
 
     def forward(self, inputs_uw, inputs_us, model, score):
-
-        from IPython import embed
-        embed()
         inputs_uw, inputs_us = inputs_uw.cuda(), inputs_us.cuda()
         outputs_uw = model(inputs_uw)[0]
         probs = torch.softmax(outputs_uw, dim=1)
@@ -45,7 +42,8 @@ class ADSH(nn.Module):
         max_rp, rp_hat = torch.max(rectify_prob, dim=1)
         mask = max_rp.ge(1.0)
 
-        outputs = model(inputs_us)[0]
+        outputs, _, strong_features = model(inputs_us, return_feature=True)
+        strong_soft_labels = F.softmax(outputs)
 
         ssl_loss = (F.cross_entropy(outputs, rp_hat, reduction='none') * mask).mean()
-        return ssl_loss, outputs_uw
+        return ssl_loss, strong_features, strong_soft_labels

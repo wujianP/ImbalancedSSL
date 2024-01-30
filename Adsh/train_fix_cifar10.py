@@ -245,9 +245,12 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
             if args.alg == 'supervised':
                 ssl_loss = torch.zeros(1).cuda()
             elif args.alg == 'adsh':
-                ssl_loss = ssl_obj(inputs_u[0], inputs_u[1], model, score)
+                ssl_loss, strong_features, strong_soft_labels = ssl_obj(inputs_u[0], inputs_u[1], model, score)
             elif args.alg == 'FM':
                 ssl_loss = ssl_obj(inputs_u[0], inputs_u[1], model)
+
+            from IPython import embed
+            embed()
 
             loss = cls_loss + args.lambda_u * ssl_loss
 
