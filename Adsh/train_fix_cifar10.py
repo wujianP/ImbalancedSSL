@@ -393,6 +393,7 @@ def main():
     args.world_size = 1
     args.n_gpu = torch.cuda.device_count()
     args.device = device
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
 
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
