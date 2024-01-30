@@ -397,10 +397,6 @@ def main():
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO)
 
-    logger.warning(
-        f"device: {args.device}, "
-        f"n_gpu: {args.n_gpu}")
-
     logger.info(dict(args._get_kwargs()))
 
     cls_num_list, labeled_dataset, unlabeled_dataset, test_dataset = DATASET_GETTERS[args.dataset](

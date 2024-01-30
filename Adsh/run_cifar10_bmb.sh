@@ -6,7 +6,6 @@ NAME=Adsh_cifar10_r20_tcp-size128-get64-bp2-sp1-wt0.5
 FOLDERDIR=/discobox/wjpeng/ckp/BMB/rebuttal/combine/$NAME
 mkdir $FOLDERDIR
 
-export CUDA_VISIBLE_DEVICES=7
 python train_fix_cifar10.py \
 --gpu-id 7 \
 --al adsh \
