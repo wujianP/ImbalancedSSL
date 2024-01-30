@@ -377,7 +377,7 @@ def f(x, a, b, c, d):
     return np.sum(a * b * np.exp(-1 * x/c)) - d
 
 
-def make_imb_data(max_num, class_num, gamma,imb):
+def make_imb_data(max_num, class_num, gamma, imb):
     if imb == 'long':
         mu = np.power(1/gamma, 1/(class_num - 1))
         class_num_list = []
