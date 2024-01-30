@@ -21,6 +21,9 @@ from datasets.load_imb_data import *
 from utils.misc import *
 from config import config
 
+from bmb import TailClassPool
+import wandb
+
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description='Pytorch SSL Library')
@@ -81,6 +84,17 @@ parser.add_argument('--out', default='result_imb',
 parser.add_argument('--resume', default='', type=str,
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--manualSeed', type=int, default=0, help='manual seed')
+
+# added by bmb
+parser.add_argument("--pool_size", type=int, default=128)
+parser.add_argument("--get_num", type=int, default=64)
+parser.add_argument("--bp_power", type=float)
+parser.add_argument("--sp_power", type=float)
+parser.add_argument("--bmb_loss_wt", type=float)
+parser.add_argument("--num_max_l", type=int)
+parser.add_argument("--num_max_u", type=int)
+parser.add_argument("--wandb_project_name", type=str)
+parser.add_argument("--wandb_name", type=str)
 
 args = parser.parse_args()
 
@@ -190,11 +204,17 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
     losses = AverageMeter()
     losses_x = AverageMeter()
     losses_u = AverageMeter()
+    losses_bmb = AverageMeter()
     end = time.time()
 
     labeled_iter = iter(label_loader)
     unlabeled_iter = iter(unlabel_loader)
     score = np.zeros(args.num_classes) + args.threshold
+
+    tcp = TailClassPool(pool_size=args.pool_size,
+                        balance_power=args.bp_power,
+                        sample_power=args.sp_power,
+                        class_distribution=torch.tensor(args.cls_num_list))
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.alg == 'adsh' and epoch > 1:
@@ -322,6 +342,16 @@ def test(args, test_loader, model):
 
 
 def main():
+    wandb.init(
+        project=args.wandb_project_name,
+        name=args.wandb_name,
+        id=args.wandb_name,
+        notes=None,
+        tags=[],
+        resume='auto',
+        config=vars(args),
+    )
+
     from utils.logger import Logger
     result_logger = Logger(os.path.join(args.out, 'result_log.txt'), title='fix-cifar')
     result_logger.set_names(
@@ -342,9 +372,11 @@ def main():
 
     logger.info(dict(args._get_kwargs()))
 
-
     cls_num_list, labeled_dataset, unlabeled_dataset, test_dataset = DATASET_GETTERS[args.dataset](
         args, './data')
+
+    print('sample num per class', cls_num_list)
+    args.cls_num_list = cls_num_list
 
     label_loader = DataLoader(
         labeled_dataset, sampler=RandomSampler(labeled_dataset),

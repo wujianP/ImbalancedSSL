@@ -35,6 +35,8 @@ class ADSH(nn.Module):
 
     def forward(self, inputs_uw, inputs_us, model, score):
 
+        from IPython import embed
+        embed()
         inputs_uw, inputs_us = inputs_uw.cuda(), inputs_us.cuda()
         outputs_uw = model(inputs_uw)[0]
         probs = torch.softmax(outputs_uw, dim=1)
