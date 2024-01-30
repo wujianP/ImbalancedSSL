@@ -389,7 +389,7 @@ def main():
     result_logger = Logger(os.path.join(args.out, 'result_log.txt'), title='fix-cifar')
     result_logger.set_names(
         ['Train Loss', 'Train Loss X', 'Train Loss U', 'Train Loss Teacher', 'Test Loss', 'Test Acc.'])
-    device = torch.device('cuda', args.gpu_id)
+    device = 'cuda'
     args.world_size = 1
     args.n_gpu = torch.cuda.device_count()
     args.device = device

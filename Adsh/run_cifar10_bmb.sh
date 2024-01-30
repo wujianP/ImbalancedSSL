@@ -2,12 +2,13 @@ conda activate /discobox/wjpeng/env/bmb/
 cd /discobox/wjpeng/code/ImbalancedSSL/Adsh
 git pull
 
-NAME= Adsh_cifar10_r100_tcp-size128-get64-bp2-sp0.5-wt1
+NAME=Adsh_cifar10_r20_tcp-size128-get64-bp2-sp1-wt0.5
 FOLDERDIR=/discobox/wjpeng/ckp/BMB/rebuttal/combine/$NAME
 mkdir $FOLDERDIR
 
+export CUDA_VISIBLE_DEVICES=7
 python train_fix_cifar10.py \
---gpu-id 0 \
+--gpu-id 7 \
 --al adsh \
 --dataset cifar10 \
 --num_classes 10 \
@@ -23,7 +24,7 @@ python train_fix_cifar10.py \
 --get_num 64 \
 --wandb_name $NAME \
 --wandb_project_name Adsh_BMB_CIFAR10 \
---bp_power 1 \
---sp_power 0.5 \
---bmb_loss_wt 0
+--bp_power 2 \
+--sp_power 1 \
+--bmb_loss_wt 1
 
