@@ -27,7 +27,7 @@ import wandb
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description='Pytorch SSL Library')
-parser.add_argument('--gpu-id', default='0', type=int,
+parser.add_argument('--gpu-id', default='0', type=str,
                     help='id(s) for CUDA_VISIBE_DEVICES')
 parser.add_argument('--gpu', default='0', type=str,
                     help='id(s) for CUDA_VISIBE_DEVICES')
