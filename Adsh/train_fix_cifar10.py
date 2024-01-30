@@ -265,7 +265,7 @@ def train_ssl(label_loader, unlabel_loader, test_loader, ssl_obj, result_logger)
             if tcp_get_num > 0:
                 from bmb import label2onehot
                 tcp_labels = label2onehot(tcp_got_labels, tcp_get_num, 10)
-                tcp_logits = model.classify2(tcp_got_features)
+                tcp_logits = model.classify(tcp_got_features)
                 loss_tcp = -torch.mean(torch.sum(F.log_softmax(tcp_logits, dim=1) * tcp_labels, dim=1))
             else:
                 loss_tcp = torch.zeros(1).cuda()

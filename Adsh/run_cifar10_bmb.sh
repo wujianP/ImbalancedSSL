@@ -1,8 +1,10 @@
 conda activate /discobox/wjpeng/env/bmb/
-FOLDERDIR='/discobox/wjpeng/ckp/BMB/rebuttal/baselines/test'
-mkdir $FOLDERDIR
 cd /discobox/wjpeng/code/ImbalancedSSL/Adsh
 git pull
+
+NAME=test-ABC_cifar10_r100
+FOLDERDIR=/discobox/wjpeng/ckp/BMB/rebuttal/combine/$NAME
+mkdir $FOLDERDIR
 
 python train_fix_cifar10.py \
 --gpu-id 2 \
@@ -18,4 +20,11 @@ python train_fix_cifar10.py \
 --imb_ratio_l 20 \
 --imb_ratio_u 20 \
 --out $FOLDERDIR \
- | tee ${FOLDERDIR}/progress.txt
+--pool_size 128 \
+--get_num 64 \
+--wandb_name $NAME \
+--wandb_project_name ABC_BMB_CIFAR10 \
+--bp_power 1 \
+--sp_power 0.5 \
+--bmb_loss_wt 0
+
